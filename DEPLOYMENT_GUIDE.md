@@ -10,10 +10,10 @@
 3. Connect your GitHub repository.
 4. Settings:
    - **Name**: `daily-task-backend` (or similar)
+   - **Root Directory**: `backend` (Important: Click 'Advanced' or 'Root Directory' setting to find this)
    - **Runtime**: Python 3
-   - **Build Command**: `pip install -r backend/requirements.txt`
-   - **Start Command**: `cd backend && gunicorn -w 4 -k uvicorn.workers.UvicornWorker app.main:app`
-     *Note: We cd into `backend` because your `app` folder is inside `backend`.*
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `gunicorn -w 4 -k uvicorn.workers.UvicornWorker app.main:app`
 5. **Environment Variables**:
    - `DISABLE_NOTIFICATIONS`: `true` (Important!)
    - `ALLOWED_ORIGINS`: `https://your-frontend-app.vercel.app` (You will update this after deploying frontend)
@@ -27,7 +27,7 @@
 4. Settings:
    - **Root Directory**: `frontend` (Click Edit and select the `frontend` folder).
    - **Build Command**: `npm run build` (Default is fine).
-   - **Output Directory**: `dist` (Default is fine).
+   - **Output Directory**: `dist` (This is the default for Vite).
    - **Environment Variables**:
      - `VITE_API_URL`: Paste your Render Backend URL (e.g., `https://daily-task-backend.onrender.com`). **Must not end with a slash.**
 5. Click **Deploy**.
@@ -38,4 +38,11 @@
 3. Redeploy the backend if needed (Render usually restarts automatically on env change).
 
 ## 5. Notes
-- **Database**: This setup uses a SQLite database on Render's disk. **Warning**: On the free tier, Render spins down services after inactivity, which **might wipe your data** if the disk is ephemeral. For permanent data, consider using a hosted Postgres database (like Render's managed Postgres or Neon.tech) and updating the `DATABASE_URL` in `database.py`.
+- **Database**: By default, this app uses SQLite, which is ephemeral on Render (data wipes on restart).
+- **For Permanent Data**:
+  1. Create a PostgreSQL database (e.g., via Render Dashboard -> New + -> PostgreSQL).
+  2. Copy the `Internal Database URL` (if deploying backend on Render) or `External Database URL`.
+  3. In your Render Web Service **Environment Variables**, add:
+     - Key: `DATABASE_URL`
+     - Value: `postgres://...` (your connection string).
+  4. The app will automatically detect this and switch to PostgreSQL.
