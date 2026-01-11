@@ -6,4 +6,5 @@ pydantic>=2.9.0
 apscheduler>=3.10.4
 plyer>=2.1.0
 python-multipart>=0.0.6
+gunicorn>=21.2.0
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Task } from '../types';
-import { CheckIcon, XMarkIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { CheckIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 interface TaskCardProps {
   task: Task;

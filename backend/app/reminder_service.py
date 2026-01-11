@@ -28,11 +28,14 @@ def check_and_send_reminders():
         for task in tasks:
             # Send desktop notification
             try:
-                notification.notify(
-                    title="Task Reminder",
-                    message=f"It's time for: {task.title}",
-                    timeout=10
-                )
+                # Check if notifications should be disabled (e.g. in cloud/headless environment)
+                import os
+                if os.getenv("DISABLE_NOTIFICATIONS") != "true":
+                    notification.notify(
+                        title="Task Reminder",
+                        message=f"It's time for: {task.title}",
+                        timeout=10
+                    )
                 task.reminder_sent = True
                 db.commit()
             except Exception as e:

@@ -5,7 +5,7 @@ import { taskApi } from '../services/api';
 import TaskForm from '../components/TaskForm';
 import ConfirmDialog from '../components/ConfirmDialog';
 import RollbackBanner from '../components/RollbackBanner';
-import { DocumentDuplicateIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { TrashIcon } from '@heroicons/react/24/outline';
 
 const MonthView: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -71,16 +71,7 @@ const MonthView: React.FC = () => {
     setIsFormOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
-    if (window.confirm('Are you sure you want to delete this task?')) {
-      try {
-        await taskApi.delete(id);
-        loadMonthTasks();
-      } catch (error) {
-        console.error('Error deleting task:', error);
-      }
-    }
-  };
+
 
   const getTasksForDate = (date: Date): Task[] => {
     const dateStr = format(date, 'yyyy-MM-dd');
@@ -418,6 +409,7 @@ const MonthView: React.FC = () => {
           setSelectedDate('');
         }}
         onSubmit={editingTask ? handleUpdateTask : handleCreateTask}
+        initialDate={selectedDate}
       />
 
       {showDuplicateDialog && duplicateSourceDate && duplicateType && (

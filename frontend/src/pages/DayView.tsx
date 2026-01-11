@@ -106,7 +106,7 @@ const DayView: React.FC = () => {
 
   const handleDuplicateConfirm = async () => {
     if (!duplicateType) return;
-    
+
     setDuplicating(true);
     try {
       const response = await taskApi.duplicateTasks(selectedDate, duplicateType);
@@ -127,7 +127,7 @@ const DayView: React.FC = () => {
 
   const handleRollback = async () => {
     if (duplicatedTaskIds.length === 0) return;
-    
+
     setRollingBack(true);
     try {
       await taskApi.batchDelete(duplicatedTaskIds);
@@ -289,6 +289,7 @@ const DayView: React.FC = () => {
           setEditingTask(null);
         }}
         onSubmit={editingTask ? handleUpdateTask : handleCreateTask}
+        initialDate={selectedDate}
       />
 
       {showDuplicateDialog && duplicateType && (

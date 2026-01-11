@@ -11,9 +11,20 @@ init_db()
 app = FastAPI(title="Daily Task Scheduler API", version="1.0.0")
 
 # Configure CORS
+origins = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+]
+
+# Add production origins from environment variable
+import os
+prod_origins = os.getenv("ALLOWED_ORIGINS")
+if prod_origins:
+    origins.extend(prod_origins.split(","))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],  # React dev servers
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

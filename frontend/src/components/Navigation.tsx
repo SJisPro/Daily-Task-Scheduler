@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { ViewMode } from '../types';
 import { CalendarDaysIcon, CalendarIcon, SunIcon } from '@heroicons/react/24/outline';
 
@@ -9,7 +9,7 @@ interface NavigationProps {
 
 const Navigation: React.FC<NavigationProps> = ({ currentView }) => {
   const navigate = useNavigate();
-  const location = useLocation();
+
 
   const handleViewChange = (view: ViewMode) => {
     navigate(`/${view}`);
@@ -31,8 +31,8 @@ const Navigation: React.FC<NavigationProps> = ({ currentView }) => {
                 onClick={() => handleViewChange('day')}
                 className={`
                   px-4 py-2 rounded-md text-sm font-medium transition-all
-                  ${currentView === 'day' 
-                    ? 'bg-primary-500 text-white shadow-md' 
+                  ${currentView === 'day'
+                    ? 'bg-primary-500 text-white shadow-md'
                     : 'text-gray-700 hover:text-primary-600'
                   }
                 `}
@@ -46,8 +46,8 @@ const Navigation: React.FC<NavigationProps> = ({ currentView }) => {
                 onClick={() => handleViewChange('week')}
                 className={`
                   px-4 py-2 rounded-md text-sm font-medium transition-all
-                  ${currentView === 'week' 
-                    ? 'bg-primary-500 text-white shadow-md' 
+                  ${currentView === 'week'
+                    ? 'bg-primary-500 text-white shadow-md'
                     : 'text-gray-700 hover:text-primary-600'
                   }
                 `}
@@ -61,8 +61,8 @@ const Navigation: React.FC<NavigationProps> = ({ currentView }) => {
                 onClick={() => handleViewChange('month')}
                 className={`
                   px-4 py-2 rounded-md text-sm font-medium transition-all
-                  ${currentView === 'month' 
-                    ? 'bg-primary-500 text-white shadow-md' 
+                  ${currentView === 'month'
+                    ? 'bg-primary-500 text-white shadow-md'
                     : 'text-gray-700 hover:text-primary-600'
                   }
                 `}

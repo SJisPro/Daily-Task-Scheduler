@@ -7,13 +7,14 @@ interface TaskFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (task: TaskCreate) => void;
+  initialDate?: string;
 }
 
-const TaskForm: React.FC<TaskFormProps> = ({ task, isOpen, onClose, onSubmit }) => {
+const TaskForm: React.FC<TaskFormProps> = ({ task, isOpen, onClose, onSubmit, initialDate }) => {
   const [formData, setFormData] = useState<TaskCreate>({
     title: '',
     description: '',
-    scheduled_date: new Date().toISOString().split('T')[0],
+    scheduled_date: initialDate || new Date().toISOString().split('T')[0],
     scheduled_time: new Date().toTimeString().slice(0, 5),
   });
 
@@ -29,7 +30,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ task, isOpen, onClose, onSubmit }) 
       setFormData({
         title: '',
         description: '',
-        scheduled_date: new Date().toISOString().split('T')[0],
+        scheduled_date: initialDate || new Date().toISOString().split('T')[0],
         scheduled_time: new Date().toTimeString().slice(0, 5),
       });
     }

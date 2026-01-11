@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { format, startOfWeek, addDays, isSameDay, parseISO } from 'date-fns';
+import { format, startOfWeek, addDays, isSameDay } from 'date-fns';
 import { Task, TaskCreate } from '../types';
 import { taskApi } from '../services/api';
 import TaskForm from '../components/TaskForm';
@@ -424,6 +424,7 @@ const WeekView: React.FC = () => {
           setSelectedDate('');
         }}
         onSubmit={editingTask ? handleUpdateTask : handleCreateTask}
+        initialDate={selectedDate}
       />
 
       {showDuplicateDialog && duplicateSourceDate && duplicateType && (
