@@ -46,3 +46,23 @@
      - Key: `DATABASE_URL`
      - Value: `postgres://...` (your connection string).
   4. The app will automatically detect this and switch to PostgreSQL.
+  
+ ## 6. Troubleshooting "Failed to load tasks"
+ If you see "Failed to load tasks" on the frontend:
+ 
+ 1. **Check Backend URL in Vercel**:
+    - Go to Vercel Project Settings -> Environment Variables.
+    - Ensure `VITE_API_URL` is set to your Render URL (e.g., `https://daily-task-backend.onrender.com`).
+    - **Crucial**: After adding/changing variables, you **MUST Redeploy** (Go to Deployments -> Redeploy) for changes to take effect.
+ 
+ 2. **Check CORS in Render**:
+    - Go to Render Dashboard -> Environment Variables.
+    - Ensure `ALLOWED_ORIGINS` includes your Vercel URL (e.g., `https://daily-task-frontend.vercel.app`).
+    - **No trailing slash** at the end of the URL.
+ 
+ 3. **Check Browser Console**:
+    - Right-click on the page -> Inspect -> **Console** tab.
+    - Look for red error messages.
+    - If you see "Network Error" or "Connection Refused": Your API URL might be wrong or Backend is sleeping (Render free tier sleeps after 15 mins). Reload the backend page to wake it up.
+    - If you see "CORS error": Check step 2.
+    - Use the Network tab to see the failed request URL. It should look like `https://.../api/tasks/...`.
