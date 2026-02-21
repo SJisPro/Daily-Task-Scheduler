@@ -32,8 +32,6 @@ app.include_router(tasks.router)
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize DB and start reminder service when app starts"""
-    init_db()
     start_reminder_service()
 
 @app.on_event("shutdown")
