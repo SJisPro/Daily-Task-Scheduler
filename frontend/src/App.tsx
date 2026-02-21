@@ -1,19 +1,16 @@
-import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Navigation from './components/Navigation';
 import ErrorBoundary from './components/ErrorBoundary';
 import DayView from './pages/DayView';
 import WeekView from './pages/WeekView';
 import MonthView from './pages/MonthView';
+import { useReminders } from './hooks/useReminders';
 
 function AppContent() {
   const location = useLocation();
 
-  useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-  }, []);
+  // 🔔 Start the reminder polling loop for the lifetime of the app
+  useReminders();
 
   const getCurrentView = () => {
     if (location.pathname === '/week') return 'week';
