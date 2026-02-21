@@ -5,17 +5,21 @@ import { taskApi } from '../services/api';
 import TaskForm from '../components/TaskForm';
 import ConfirmDialog from '../components/ConfirmDialog';
 import RollbackBanner from '../components/RollbackBanner';
-import { DocumentDuplicateIcon, TrashIcon } from '@heroicons/react/24/outline';
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  PlusIcon,
+  DocumentDuplicateIcon,
+  TrashIcon,
+  CheckIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline';
 
 const WeekView: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [weekStart, setWeekStart] = useState<Date>(() => {
-    try {
-      return startOfWeek(new Date(), { weekStartsOn: 1 }); // Monday
-    } catch (err) {
-      console.error('Error initializing week start:', err);
-      return new Date();
-    }
+    try { return startOfWeek(new Date(), { weekStartsOn: 1 }); }
+    catch { return new Date(); }
   });
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -32,203 +36,119 @@ const WeekView: React.FC = () => {
   const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
   const [deletingAll, setDeletingAll] = useState(false);
 
-  useEffect(() => {
-    loadWeekTasks();
-  }, [weekStart]);
+  useEffect(() => { loadWeekTasks(); }, [weekStart]);
 
   const loadWeekTasks = async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
-      const startDate = format(weekStart, 'yyyy-MM-dd');
-      const response = await taskApi.getWeek(startDate);
+      const response = await taskApi.getWeek(format(weekStart, 'yyyy-MM-dd'));
       setTasks(response.data || []);
     } catch (error: any) {
-      console.error('Error loading week tasks:', error);
-      setError(error.response?.data?.detail || 'Failed to load tasks. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+      setError(error.response?.data?.detail || 'Failed to load tasks.');
+    } finally { setLoading(false); }
   };
 
   const handleCreateTask = async (taskData: TaskCreate) => {
-    try {
-      await taskApi.create(taskData);
-      loadWeekTasks();
-    } catch (error) {
-      console.error('Error creating task:', error);
-    }
+    try { await taskApi.create(taskData); loadWeekTasks(); }
+    catch (error) { console.error(error); }
   };
 
   const handleUpdateTask = async (taskData: TaskCreate) => {
     if (!editingTask) return;
-    try {
-      await taskApi.update(editingTask.id, taskData);
-      loadWeekTasks();
-      setEditingTask(null);
-    } catch (error) {
-      console.error('Error updating task:', error);
-    }
+    try { await taskApi.update(editingTask.id, taskData); loadWeekTasks(); setEditingTask(null); }
+    catch (error) { console.error(error); }
   };
 
   const handleComplete = async (id: number) => {
-    try {
-      await taskApi.complete(id);
-      loadWeekTasks();
-    } catch (error) {
-      console.error('Error completing task:', error);
-    }
+    try { await taskApi.complete(id); loadWeekTasks(); }
+    catch (error) { console.error(error); }
   };
 
   const handleUncomplete = async (id: number) => {
-    try {
-      await taskApi.uncomplete(id);
-      loadWeekTasks();
-    } catch (error) {
-      console.error('Error uncompleting task:', error);
-    }
+    try { await taskApi.uncomplete(id); loadWeekTasks(); }
+    catch (error) { console.error(error); }
   };
 
-  const handleEdit = (task: Task) => {
-    setEditingTask(task);
-    setIsFormOpen(true);
-  };
+  const handleEdit = (task: Task) => { setEditingTask(task); setIsFormOpen(true); };
 
   const handleDelete = async (id: number) => {
-    if (window.confirm('Are you sure you want to delete this task?')) {
-      try {
-        await taskApi.delete(id);
-        loadWeekTasks();
-      } catch (error) {
-        console.error('Error deleting task:', error);
-      }
+    if (window.confirm('Delete this task?')) {
+      try { await taskApi.delete(id); loadWeekTasks(); }
+      catch (error) { console.error(error); }
     }
   };
 
-  const getTasksForDay = (date: Date): Task[] => {
-    const dateStr = format(date, 'yyyy-MM-dd');
-    return tasks.filter(task => task.scheduled_date === dateStr);
-  };
+  const getTasksForDay = (date: Date) => tasks.filter(t => t.scheduled_date === format(date, 'yyyy-MM-dd'));
+  const navigateWeek = (dir: 'prev' | 'next') => setWeekStart(addDays(weekStart, dir === 'next' ? 7 : -7));
 
-  const navigateWeek = (direction: 'prev' | 'next') => {
-    setWeekStart(addDays(weekStart, direction === 'next' ? 7 : -7));
-  };
-
-  // Calculate week days safely - must happen before early returns
   let weekDays: Date[] = [];
   const today = new Date();
-
   try {
-    if (weekStart && weekStart instanceof Date && !isNaN(weekStart.getTime())) {
-      weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-    } else {
-      console.warn('Invalid weekStart, using fallback');
-      const fallbackWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-      weekDays = Array.from({ length: 7 }, (_, i) => addDays(fallbackWeekStart, i));
-    }
-  } catch (err) {
-    console.error('Error calculating week days:', err);
-    // Fallback to current week
-    try {
-      const fallbackWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-      weekDays = Array.from({ length: 7 }, (_, i) => addDays(fallbackWeekStart, i));
-    } catch (fallbackErr) {
-      console.error('Fallback also failed:', fallbackErr);
-      weekDays = [];
-    }
-  }
+    weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  } catch { weekDays = []; }
 
   const handleDuplicateClick = (date: Date, type: 'week' | 'month') => {
-    const dateStr = format(date, 'yyyy-MM-dd');
-    const dayTasks = getTasksForDay(date);
-
-    if (dayTasks.length === 0) {
-      alert(`No tasks to duplicate for ${format(date, 'MMMM d, yyyy')}!`);
-      return;
+    if (getTasksForDay(date).length === 0) {
+      alert(`No tasks for ${format(date, 'MMMM d, yyyy')}!`); return;
     }
-
-    setDuplicateSourceDate(dateStr);
+    setDuplicateSourceDate(format(date, 'yyyy-MM-dd'));
     setDuplicateType(type);
     setShowDuplicateDialog(true);
   };
 
   const handleDuplicateConfirm = async () => {
     if (!duplicateType || !duplicateSourceDate) return;
-
     setDuplicating(true);
     try {
       const response = await taskApi.duplicateTasks(duplicateSourceDate, duplicateType);
-      const createdTaskIds = response.data.map(task => task.id);
-      setDuplicatedTaskIds(createdTaskIds);
+      setDuplicatedTaskIds(response.data.map(t => t.id));
       setShowDuplicateDialog(false);
       setDuplicateType(null);
       setDuplicateSourceDate('');
       setShowRollbackBanner(true);
       loadWeekTasks();
     } catch (error: any) {
-      console.error('Error duplicating tasks:', error);
-      alert(error.response?.data?.detail || 'Failed to duplicate tasks. Please try again.');
-    } finally {
-      setDuplicating(false);
-    }
+      alert(error.response?.data?.detail || 'Failed to duplicate tasks.');
+    } finally { setDuplicating(false); }
   };
 
   const handleRollback = async () => {
-    if (duplicatedTaskIds.length === 0) return;
-
+    if (!duplicatedTaskIds.length) return;
     setRollingBack(true);
     try {
       await taskApi.batchDelete(duplicatedTaskIds);
       setShowRollbackBanner(false);
       setDuplicatedTaskIds([]);
-      alert(`Successfully rolled back ${duplicatedTaskIds.length} task(s)!`);
       loadWeekTasks();
     } catch (error: any) {
-      console.error('Error rolling back tasks:', error);
-      alert(error.response?.data?.detail || 'Failed to rollback tasks. Please try again.');
-    } finally {
-      setRollingBack(false);
-    }
+      alert(error.response?.data?.detail || 'Failed to rollback.');
+    } finally { setRollingBack(false); }
   };
 
   const handleDismissRollback = () => {
     setShowRollbackBanner(false);
-    // Clear IDs after a delay to allow rollback if user changes mind
-    setTimeout(() => {
-      setDuplicatedTaskIds([]);
-    }, 30000); // Clear after 30 seconds
-  };
-
-  const handleDeleteAllClick = () => {
-    if (tasks.length === 0) {
-      alert('No tasks to delete for this week!');
-      return;
-    }
-    setShowDeleteAllDialog(true);
+    setTimeout(() => setDuplicatedTaskIds([]), 30000);
   };
 
   const handleDeleteAllConfirm = async () => {
     setDeletingAll(true);
     try {
-      const startDate = format(weekStart, 'yyyy-MM-dd');
-      const response = await taskApi.deleteByWeek(startDate);
+      const response = await taskApi.deleteByWeek(format(weekStart, 'yyyy-MM-dd'));
       setShowDeleteAllDialog(false);
-      alert(`Successfully deleted ${response.data.deleted_count} task(s)!`);
+      alert(`Deleted ${response.data.deleted_count} task(s)!`);
       loadWeekTasks();
     } catch (error: any) {
-      console.error('Error deleting all tasks:', error);
-      alert(error.response?.data?.detail || 'Failed to delete tasks. Please try again.');
-    } finally {
-      setDeletingAll(false);
-    }
+      alert(error.response?.data?.detail || 'Failed to delete tasks.');
+    } finally { setDeletingAll(false); }
   };
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500"></div>
-          <p className="mt-4 text-gray-600">Loading week tasks...</p>
+      <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-center min-h-64">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-full border-2 border-transparent animate-spin"
+            style={{ borderTopColor: '#14b8a6', borderRightColor: 'rgba(20,184,166,0.3)' }} />
+          <p className="text-slate-500 font-medium text-sm">Loading week…</p>
         </div>
       </div>
     );
@@ -237,130 +157,167 @@ const WeekView: React.FC = () => {
   if (error) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-          <p className="text-red-800 font-semibold mb-2">Error loading tasks</p>
-          <p className="text-red-600 text-sm">{error}</p>
-          <button
-            onClick={loadWeekTasks}
-            className="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-          >
-            Retry
-          </button>
+        <div className="rounded-2xl p-8 text-center" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+          <p className="text-red-400 font-semibold mb-1">Error loading tasks</p>
+          <p className="text-slate-500 text-sm mb-4">{error}</p>
+          <button onClick={loadWeekTasks} className="btn-danger">Retry</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
-      <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
+    <div className="max-w-7xl mx-auto px-4 py-2 space-y-6 animate-fade-in">
+      {/* Week header */}
+      <div
+        className="rounded-2xl overflow-hidden"
+        style={{
+          background: 'rgba(20,30,50,0.8)',
+          backdropFilter: 'blur(16px)',
+          border: '1px solid rgba(51,65,85,0.5)',
+        }}
+      >
+        <div className="h-1" style={{ background: 'linear-gradient(90deg, #14b8a6, #a855f7)' }} />
+        <div className="p-5 flex items-center justify-between">
           <button
+            id="week-prev-btn"
             onClick={() => navigateWeek('prev')}
-            className="px-4 py-2 bg-primary-100 text-primary-700 rounded-lg hover:bg-primary-200 transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-300 transition-all duration-200"
+            style={{ background: 'rgba(51,65,85,0.4)', border: '1px solid rgba(51,65,85,0.6)' }}
+            onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'rgba(20,184,166,0.15)'}
+            onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'rgba(51,65,85,0.4)'}
           >
-            ← Previous Week
+            <ChevronLeftIcon className="w-4 h-4" /> Prev
           </button>
-          <div className="flex items-center gap-4">
-            <h2 className="text-2xl font-bold text-gray-800">
-              {format(weekStart, 'MMM d')} - {format(addDays(weekStart, 6), 'MMM d, yyyy')}
+
+          <div className="text-center">
+            <h2 className="text-xl font-bold text-slate-100">
+              {format(weekStart, 'MMM d')} – {format(addDays(weekStart, 6), 'MMM d, yyyy')}
             </h2>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              {tasks.length} task{tasks.length !== 1 ? 's' : ''} this week
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
             {tasks.length > 0 && (
               <button
-                onClick={handleDeleteAllClick}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all shadow-md hover:shadow-lg font-medium flex items-center gap-2"
-                title="Delete all tasks for this week"
+                id="week-delete-all-btn"
+                onClick={() => setShowDeleteAllDialog(true)}
+                className="btn-danger flex items-center gap-2"
               >
-                <TrashIcon className="w-4 h-4" />
-                Delete All
+                <TrashIcon className="w-4 h-4" /> Delete All
               </button>
             )}
+            <button
+              id="week-next-btn"
+              onClick={() => navigateWeek('next')}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-300 transition-all duration-200"
+              style={{ background: 'rgba(51,65,85,0.4)', border: '1px solid rgba(51,65,85,0.6)' }}
+              onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'rgba(20,184,166,0.15)'}
+              onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'rgba(51,65,85,0.4)'}
+            >
+              Next <ChevronRightIcon className="w-4 h-4" />
+            </button>
           </div>
-          <button
-            onClick={() => navigateWeek('next')}
-            className="px-4 py-2 bg-primary-100 text-primary-700 rounded-lg hover:bg-primary-200 transition-colors"
-          >
-            Next Week →
-          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-4">
-        {weekDays && Array.isArray(weekDays) && weekDays.length > 0 ? weekDays.map((day, index) => {
+      {/* Week grid */}
+      <div className="grid grid-cols-7 gap-3">
+        {weekDays.map((day, index) => {
           const dayTasks = getTasksForDay(day);
           const isToday = isSameDay(day, today);
           const isPast = day < today && !isToday;
+          const completedDay = dayTasks.filter(t => t.is_completed).length;
 
           return (
             <div
               key={index}
-              className={`
-                bg-white rounded-xl shadow-md p-4 min-h-[400px]
-                ${isToday ? 'ring-2 ring-primary-500' : ''}
-                ${isPast ? 'opacity-75' : ''}
-              `}
+              className="rounded-2xl overflow-hidden flex flex-col transition-all duration-200"
+              style={{
+                background: isToday
+                  ? 'rgba(20,184,166,0.08)'
+                  : 'rgba(20,30,50,0.6)',
+                backdropFilter: 'blur(12px)',
+                border: isToday
+                  ? '1px solid rgba(20,184,166,0.4)'
+                  : '1px solid rgba(51,65,85,0.4)',
+                boxShadow: isToday ? '0 0 20px rgba(20,184,166,0.1)' : undefined,
+                opacity: isPast ? 0.7 : 1,
+                minHeight: '320px',
+              }}
             >
-              <div className="text-center mb-4">
-                <div className={`text-sm font-medium ${isToday ? 'text-primary-600' : 'text-gray-500'}`}>
+              {/* Day header */}
+              <div
+                className="p-3 text-center"
+                style={{
+                  borderBottom: `1px solid ${isToday ? 'rgba(20,184,166,0.25)' : 'rgba(51,65,85,0.4)'}`,
+                  background: isToday ? 'rgba(20,184,166,0.1)' : 'rgba(15,23,42,0.4)',
+                }}
+              >
+                <div className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${isToday ? 'text-primary-400' : 'text-slate-500'}`}>
                   {format(day, 'EEE')}
                 </div>
                 <div
-                  className={`
-                    text-2xl font-bold mt-1
-                    ${isToday ? 'text-primary-600' : 'text-gray-800'}
-                  `}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold mx-auto ${isToday ? 'text-slate-900' : 'text-slate-300'}`}
+                  style={isToday ? { background: 'linear-gradient(135deg,#14b8a6,#0d9488)', boxShadow: '0 3px 10px rgba(20,184,166,0.5)' } : undefined}
                 >
                   {format(day, 'd')}
                 </div>
-                {isToday && (
-                  <div className="text-xs text-primary-500 mt-1">Today</div>
+                {dayTasks.length > 0 && (
+                  <div className="mt-1.5 text-[10px] text-slate-500 font-medium">
+                    {completedDay}/{dayTasks.length}
+                  </div>
                 )}
               </div>
 
-              <div className="space-y-2">
+              {/* Tasks */}
+              <div className="flex-1 p-2 space-y-1.5 overflow-y-auto">
                 {dayTasks.length === 0 ? (
-                  <div className="text-center text-gray-400 text-sm py-4">
+                  <div className="text-center text-slate-600 text-[11px] py-6 font-medium">
                     No tasks
                   </div>
                 ) : (
-                  dayTasks.map((task) => (
+                  dayTasks.map(task => (
                     <div
                       key={task.id}
-                      className={`
-                        p-2 rounded-lg text-sm cursor-pointer transition-all
-                        ${task.is_completed
-                          ? 'bg-green-50 border border-green-200 line-through'
-                          : 'bg-primary-50 border border-primary-200 hover:bg-primary-100'
-                        }
-                      `}
+                      className="p-2 rounded-xl text-xs cursor-pointer transition-all duration-200 group/task"
+                      style={{
+                        background: task.is_completed
+                          ? 'rgba(34,197,94,0.08)'
+                          : 'rgba(20,184,166,0.06)',
+                        border: task.is_completed
+                          ? '1px solid rgba(34,197,94,0.25)'
+                          : '1px solid rgba(20,184,166,0.2)',
+                      }}
                       onClick={() => handleEdit(task)}
                     >
-                      <div className="font-medium text-gray-800">{task.title}</div>
-                      <div className="text-xs text-gray-600 mt-1">🕐 {task.scheduled_time}</div>
-                      <div className="flex gap-1 mt-2">
+                      <div
+                        className={`font-semibold leading-snug ${task.is_completed ? 'line-through text-slate-500' : 'text-slate-200'}`}
+                        style={{ fontSize: '11px' }}
+                      >
+                        {task.title}
+                      </div>
+                      <div className="text-slate-600 mt-0.5 text-[10px]">⏰ {task.scheduled_time}</div>
+
+                      <div className="flex gap-1 mt-1.5 opacity-0 group-hover/task:opacity-100 transition-opacity">
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            task.is_completed ? handleUncomplete(task.id) : handleComplete(task.id);
+                          onClick={e => { e.stopPropagation(); task.is_completed ? handleUncomplete(task.id) : handleComplete(task.id); }}
+                          className="flex-1 flex items-center justify-center py-1 rounded-lg text-[10px] font-semibold transition-colors"
+                          style={{
+                            background: task.is_completed ? 'rgba(34,197,94,0.15)' : 'rgba(20,184,166,0.15)',
+                            color: task.is_completed ? '#4ade80' : '#2dd4bf',
                           }}
-                          className={`
-                            text-xs px-2 py-1 rounded
-                            ${task.is_completed
-                              ? 'bg-green-200 text-green-800'
-                              : 'bg-primary-200 text-primary-800'
-                            }
-                          `}
                         >
-                          {task.is_completed ? '✓' : '○'}
+                          <CheckIcon className="w-3 h-3" />
                         </button>
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(task.id);
-                          }}
-                          className="text-xs px-2 py-1 rounded bg-red-200 text-red-800"
+                          onClick={e => { e.stopPropagation(); handleDelete(task.id); }}
+                          className="flex items-center justify-center px-2 py-1 rounded-lg text-[10px] transition-colors"
+                          style={{ background: 'rgba(239,68,68,0.12)', color: '#f87171' }}
                         >
-                          ×
+                          <XMarkIcon className="w-3 h-3" />
                         </button>
                       </div>
                     </div>
@@ -368,61 +325,49 @@ const WeekView: React.FC = () => {
                 )}
               </div>
 
-              <div className="mt-4 space-y-2">
+              {/* Day footer */}
+              <div className="p-2 space-y-1.5" style={{ borderTop: '1px solid rgba(51,65,85,0.3)' }}>
                 <button
-                  onClick={() => {
-                    setSelectedDate(format(day, 'yyyy-MM-dd'));
-                    setEditingTask(null);
-                    setIsFormOpen(true);
-                  }}
-                  className="w-full py-2 text-sm text-primary-600 hover:bg-primary-50 rounded-lg transition-colors border border-dashed border-primary-300"
+                  id={`week-add-task-${format(day, 'yyyy-MM-dd')}`}
+                  onClick={() => { setSelectedDate(format(day, 'yyyy-MM-dd')); setEditingTask(null); setIsFormOpen(true); }}
+                  className="w-full py-2 rounded-xl text-[11px] font-semibold text-primary-400 transition-all duration-200"
+                  style={{ border: '1px dashed rgba(20,184,166,0.3)', background: 'transparent' }}
+                  onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'rgba(20,184,166,0.06)'}
+                  onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'transparent'}
                 >
-                  + Add Task
+                  <PlusIcon className="w-3 h-3 inline mr-1" />Add
                 </button>
                 {dayTasks.length > 0 && (
                   <div className="flex gap-1">
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDuplicateClick(day, 'week');
-                      }}
-                      className="flex-1 py-1.5 text-xs bg-primary-100 text-primary-700 hover:bg-primary-200 rounded-lg transition-colors flex items-center justify-center gap-1"
-                      title="Copy tasks to whole week"
+                      onClick={e => { e.stopPropagation(); handleDuplicateClick(day, 'week'); }}
+                      className="flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all duration-200"
+                      style={{ background: 'rgba(20,184,166,0.08)', color: '#2dd4bf', border: '1px solid rgba(20,184,166,0.2)' }}
+                      title="Copy to week"
                     >
-                      <DocumentDuplicateIcon className="w-3 h-3" />
-                      Week
+                      <DocumentDuplicateIcon className="w-3 h-3 inline mr-0.5" />Wk
                     </button>
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDuplicateClick(day, 'month');
-                      }}
-                      className="flex-1 py-1.5 text-xs bg-accent-100 text-accent-700 hover:bg-accent-200 rounded-lg transition-colors flex items-center justify-center gap-1"
-                      title="Copy tasks to whole month"
+                      onClick={e => { e.stopPropagation(); handleDuplicateClick(day, 'month'); }}
+                      className="flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all duration-200"
+                      style={{ background: 'rgba(168,85,247,0.08)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.2)' }}
+                      title="Copy to month"
                     >
-                      <DocumentDuplicateIcon className="w-3 h-3" />
-                      Month
+                      <DocumentDuplicateIcon className="w-3 h-3 inline mr-0.5" />Mo
                     </button>
                   </div>
                 )}
               </div>
             </div>
           );
-        }) : (
-          <div className="col-span-7 text-center py-8 text-gray-500">
-            No days to display
-          </div>
-        )}
+        })}
       </div>
 
+      {/* Modals */}
       <TaskForm
         task={editingTask}
         isOpen={isFormOpen}
-        onClose={() => {
-          setIsFormOpen(false);
-          setEditingTask(null);
-          setSelectedDate('');
-        }}
+        onClose={() => { setIsFormOpen(false); setEditingTask(null); setSelectedDate(''); }}
         onSubmit={editingTask ? handleUpdateTask : handleCreateTask}
         initialDate={selectedDate}
       />
@@ -430,16 +375,12 @@ const WeekView: React.FC = () => {
       {showDuplicateDialog && duplicateSourceDate && duplicateType && (
         <ConfirmDialog
           isOpen={showDuplicateDialog}
-          title={`Duplicate Tasks to ${duplicateType === 'week' ? 'Week' : 'Month'}`}
-          message={`This will copy all tasks from ${format(new Date(duplicateSourceDate), 'MMMM d, yyyy')} to the next ${duplicateType === 'week' ? '6 days' : '30 days'}. Continue?`}
-          confirmText={duplicating ? 'Duplicating...' : 'Duplicate'}
+          title={`Duplicate to ${duplicateType === 'week' ? 'Week' : 'Month'}`}
+          message={`Copy all tasks from ${format(new Date(duplicateSourceDate), 'MMMM d, yyyy')} to the next ${duplicateType === 'week' ? '6 days' : '30 days'}?`}
+          confirmText={duplicating ? 'Duplicating…' : 'Duplicate'}
           cancelText="Cancel"
           onConfirm={handleDuplicateConfirm}
-          onCancel={() => {
-            setShowDuplicateDialog(false);
-            setDuplicateType(null);
-            setDuplicateSourceDate('');
-          }}
+          onCancel={() => { setShowDuplicateDialog(false); setDuplicateType(null); setDuplicateSourceDate(''); }}
           type="info"
         />
       )}
@@ -456,8 +397,8 @@ const WeekView: React.FC = () => {
       <ConfirmDialog
         isOpen={showDeleteAllDialog}
         title="Delete All Tasks"
-        message={`Are you sure you want to delete all ${tasks.length} task(s) for this week (${format(weekStart, 'MMM d')} - ${format(addDays(weekStart, 6), 'MMM d, yyyy')})? This action cannot be undone.`}
-        confirmText={deletingAll ? 'Deleting...' : 'Delete All'}
+        message={`Delete all ${tasks.length} task(s) for this week? This cannot be undone.`}
+        confirmText={deletingAll ? 'Deleting…' : 'Delete All'}
         cancelText="Cancel"
         onConfirm={handleDeleteAllConfirm}
         onCancel={() => setShowDeleteAllDialog(false)}
@@ -468,4 +409,3 @@ const WeekView: React.FC = () => {
 };
 
 export default WeekView;
-

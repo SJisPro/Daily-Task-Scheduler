@@ -9,7 +9,6 @@ import MonthView from './pages/MonthView';
 function AppContent() {
   const location = useLocation();
 
-  // Request notification permission on mount
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
@@ -24,10 +23,9 @@ function AppContent() {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen pb-8">
+      <div className="min-h-screen pb-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
           <Navigation currentView={getCurrentView()} />
-
           <Routes>
             <Route path="/" element={<Navigate to="/day" replace />} />
             <Route path="/day" element={<DayView />} />
@@ -49,4 +47,3 @@ function App() {
 }
 
 export default App;
-

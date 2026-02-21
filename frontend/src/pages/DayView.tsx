@@ -7,7 +7,15 @@ import TaskForm from '../components/TaskForm';
 import ConfirmDialog from '../components/ConfirmDialog';
 import RollbackBanner from '../components/RollbackBanner';
 import WeekCopyDialog from '../components/WeekCopyDialog';
-import { DocumentDuplicateIcon, TrashIcon } from '@heroicons/react/24/outline';
+import {
+  PlusIcon,
+  DocumentDuplicateIcon,
+  TrashIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  ListBulletIcon,
+  CalendarDaysIcon,
+} from '@heroicons/react/24/outline';
 
 const DayView: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -17,9 +25,7 @@ const DayView: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(false);
-  // Week-copy dialog (3-option picker)
   const [showWeekCopyDialog, setShowWeekCopyDialog] = useState(false);
-  // Month-copy confirm dialog
   const [showMonthCopyDialog, setShowMonthCopyDialog] = useState(false);
   const [duplicateType, setDuplicateType] = useState<CopyTargetType | null>(null);
   const [duplicating, setDuplicating] = useState(false);
@@ -46,77 +52,46 @@ const DayView: React.FC = () => {
   };
 
   const handleCreateTask = async (taskData: TaskCreate) => {
-    try {
-      await taskApi.create(taskData);
-      loadTasks();
-    } catch (error) {
-      console.error('Error creating task:', error);
-    }
+    try { await taskApi.create(taskData); loadTasks(); }
+    catch (error) { console.error('Error creating task:', error); }
   };
 
   const handleUpdateTask = async (taskData: TaskCreate) => {
     if (!editingTask) return;
-    try {
-      await taskApi.update(editingTask.id, taskData);
-      loadTasks();
-      setEditingTask(null);
-    } catch (error) {
-      console.error('Error updating task:', error);
-    }
+    try { await taskApi.update(editingTask.id, taskData); loadTasks(); setEditingTask(null); }
+    catch (error) { console.error('Error updating task:', error); }
   };
 
   const handleComplete = async (id: number) => {
-    try {
-      await taskApi.complete(id);
-      loadTasks();
-    } catch (error) {
-      console.error('Error completing task:', error);
-    }
+    try { await taskApi.complete(id); loadTasks(); }
+    catch (error) { console.error('Error completing task:', error); }
   };
 
   const handleUncomplete = async (id: number) => {
-    try {
-      await taskApi.uncomplete(id);
-      loadTasks();
-    } catch (error) {
-      console.error('Error uncompleting task:', error);
-    }
+    try { await taskApi.uncomplete(id); loadTasks(); }
+    catch (error) { console.error('Error uncompleting task:', error); }
   };
 
-  const handleEdit = (task: Task) => {
-    setEditingTask(task);
-    setIsFormOpen(true);
-  };
+  const handleEdit = (task: Task) => { setEditingTask(task); setIsFormOpen(true); };
 
   const handleDelete = async (id: number) => {
     if (window.confirm('Are you sure you want to delete this task?')) {
-      try {
-        await taskApi.delete(id);
-        loadTasks();
-      } catch (error) {
-        console.error('Error deleting task:', error);
-      }
+      try { await taskApi.delete(id); loadTasks(); }
+      catch (error) { console.error('Error deleting task:', error); }
     }
   };
 
   const handleWeekCopyClick = () => {
-    if (tasks.length === 0) {
-      alert('No tasks to duplicate for this day!');
-      return;
-    }
+    if (tasks.length === 0) { alert('No tasks to duplicate for this day!'); return; }
     setShowWeekCopyDialog(true);
   };
 
   const handleMonthCopyClick = () => {
-    if (tasks.length === 0) {
-      alert('No tasks to duplicate for this day!');
-      return;
-    }
+    if (tasks.length === 0) { alert('No tasks to duplicate for this day!'); return; }
     setDuplicateType('month');
     setShowMonthCopyDialog(true);
   };
 
-  /** Called when user picks an option in WeekCopyDialog OR confirms the month dialog */
   const handleDuplicateConfirm = async (type: CopyTargetType) => {
     setDuplicating(true);
     try {
@@ -138,13 +113,11 @@ const DayView: React.FC = () => {
 
   const handleRollback = async () => {
     if (duplicatedTaskIds.length === 0) return;
-
     setRollingBack(true);
     try {
       await taskApi.batchDelete(duplicatedTaskIds);
       setShowRollbackBanner(false);
       setDuplicatedTaskIds([]);
-      alert(`Successfully rolled back ${duplicatedTaskIds.length} task(s)!`);
       loadTasks();
     } catch (error: any) {
       console.error('Error rolling back tasks:', error);
@@ -156,17 +129,11 @@ const DayView: React.FC = () => {
 
   const handleDismissRollback = () => {
     setShowRollbackBanner(false);
-    // Clear IDs after a delay to allow rollback if user changes mind
-    setTimeout(() => {
-      setDuplicatedTaskIds([]);
-    }, 30000); // Clear after 30 seconds
+    setTimeout(() => setDuplicatedTaskIds([]), 30000);
   };
 
   const handleDeleteAllClick = () => {
-    if (tasks.length === 0) {
-      alert('No tasks to delete for this day!');
-      return;
-    }
+    if (tasks.length === 0) { alert('No tasks to delete for this day!'); return; }
     setShowDeleteAllDialog(true);
   };
 
@@ -185,97 +152,173 @@ const DayView: React.FC = () => {
     }
   };
 
-  const sortedTasks = [...tasks].sort((a, b) => {
-    if (a.scheduled_time < b.scheduled_time) return -1;
-    if (a.scheduled_time > b.scheduled_time) return 1;
-    return 0;
-  });
-
+  const sortedTasks = [...tasks].sort((a, b) => a.scheduled_time.localeCompare(b.scheduled_time));
   const completedCount = tasks.filter(t => t.is_completed).length;
   const pendingCount = tasks.length - completedCount;
+  const progress = tasks.length > 0 ? Math.round((completedCount / tasks.length) * 100) : 0;
+
+  const isToday = selectedDate === format(new Date(), 'yyyy-MM-dd');
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
-      <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-gray-800">
-            {format(new Date(selectedDate), 'EEEE, MMMM d, yyyy')}
-          </h2>
-          <div className="flex gap-3 flex-wrap">
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-            />
-            <button
-              onClick={() => {
-                setEditingTask(null);
-                setIsFormOpen(true);
-              }}
-              className="px-6 py-2 bg-gradient-to-r from-primary-500 to-accent-500 text-white rounded-lg hover:from-primary-600 hover:to-accent-600 transition-all shadow-md hover:shadow-lg font-medium"
-            >
-              + New Task
-            </button>
-            {tasks.length > 0 && (
-              <button
-                onClick={handleDeleteAllClick}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all shadow-md hover:shadow-lg font-medium flex items-center gap-2"
-                title="Delete all tasks for this day"
-              >
-                <TrashIcon className="w-4 h-4" />
-                Delete All
-              </button>
-            )}
-            {tasks.length > 0 && (
-              <div className="flex gap-2">
-                <button
-                  onClick={handleWeekCopyClick}
-                  className="px-4 py-2 bg-primary-100 text-primary-700 rounded-lg hover:bg-primary-200 transition-all font-medium flex items-center gap-2"
-                  title="Duplicate tasks to days of this week"
-                >
-                  <DocumentDuplicateIcon className="w-4 h-4" />
-                  Copy to Week
-                </button>
-                <button
-                  onClick={handleMonthCopyClick}
-                  className="px-4 py-2 bg-accent-100 text-accent-700 rounded-lg hover:bg-accent-200 transition-all font-medium flex items-center gap-2"
-                  title="Duplicate tasks to next 30 days"
-                >
-                  <DocumentDuplicateIcon className="w-4 h-4" />
-                  Copy to Month
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+    <div className="max-w-4xl mx-auto px-4 py-2 space-y-6 animate-fade-in">
+      {/* ── Header card ── */}
+      <div
+        className="rounded-3xl overflow-hidden"
+        style={{
+          background: 'rgba(20,30,50,0.8)',
+          backdropFilter: 'blur(16px)',
+          border: '1px solid rgba(51,65,85,0.5)',
+          boxShadow: '0 4px 30px rgba(0,0,0,0.4)',
+        }}
+      >
+        {/* Top gradient strip */}
+        <div className="h-1" style={{ background: 'linear-gradient(90deg, #14b8a6, #a855f7, #ec4899)' }} />
 
-        <div className="flex gap-4 mb-4">
-          <div className="flex-1 bg-green-50 border border-green-200 rounded-lg p-3">
-            <div className="text-sm text-green-600 font-medium">Completed</div>
-            <div className="text-2xl font-bold text-green-700">{completedCount}</div>
+        <div className="p-6">
+          {/* Date row */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <CalendarDaysIcon className="w-5 h-5 text-primary-400" />
+                {isToday && (
+                  <span className="badge-teal text-[11px]">Today</span>
+                )}
+              </div>
+              <h2 className="text-2xl font-bold text-slate-100">
+                {format(new Date(selectedDate + 'T12:00:00'), 'EEEE, MMMM d, yyyy')}
+              </h2>
+            </div>
+
+            {/* Controls */}
+            <div className="flex flex-wrap gap-2 items-center">
+              <input
+                id="day-date-picker"
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="input-field !w-auto text-xs px-3 py-2"
+                style={{ minWidth: '140px' }}
+              />
+              <button
+                id="day-new-task-btn"
+                onClick={() => { setEditingTask(null); setIsFormOpen(true); }}
+                className="btn-primary flex items-center gap-2"
+              >
+                <PlusIcon className="w-4 h-4" />
+                New Task
+              </button>
+              {tasks.length > 0 && (
+                <>
+                  <button
+                    id="day-delete-all-btn"
+                    onClick={handleDeleteAllClick}
+                    className="btn-danger flex items-center gap-2"
+                  >
+                    <TrashIcon className="w-4 h-4" />
+                    Delete All
+                  </button>
+                  <button
+                    id="day-copy-week-btn"
+                    onClick={handleWeekCopyClick}
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 text-primary-300"
+                    style={{ background: 'rgba(20,184,166,0.1)', border: '1px solid rgba(20,184,166,0.25)' }}
+                    onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'rgba(20,184,166,0.2)'}
+                    onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'rgba(20,184,166,0.1)'}
+                  >
+                    <DocumentDuplicateIcon className="w-4 h-4" />
+                    Copy to Week
+                  </button>
+                  <button
+                    id="day-copy-month-btn"
+                    onClick={handleMonthCopyClick}
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 text-accent-300"
+                    style={{ background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.25)' }}
+                    onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'rgba(168,85,247,0.2)'}
+                    onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'rgba(168,85,247,0.1)'}
+                  >
+                    <DocumentDuplicateIcon className="w-4 h-4" />
+                    Copy to Month
+                  </button>
+                </>
+              )}
+            </div>
           </div>
-          <div className="flex-1 bg-orange-50 border border-orange-200 rounded-lg p-3">
-            <div className="text-sm text-orange-600 font-medium">Pending</div>
-            <div className="text-2xl font-bold text-orange-700">{pendingCount}</div>
+
+          {/* Stats row */}
+          <div className="grid grid-cols-3 gap-3 mb-5">
+            <div className="stat-card">
+              <div className="flex items-center gap-2 mb-1">
+                <CheckCircleIcon className="w-4 h-4 text-emerald-400" />
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Done</span>
+              </div>
+              <div className="text-3xl font-bold text-emerald-400">{completedCount}</div>
+            </div>
+            <div className="stat-card">
+              <div className="flex items-center gap-2 mb-1">
+                <ClockIcon className="w-4 h-4 text-amber-400" />
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Pending</span>
+              </div>
+              <div className="text-3xl font-bold text-amber-400">{pendingCount}</div>
+            </div>
+            <div className="stat-card">
+              <div className="flex items-center gap-2 mb-1">
+                <ListBulletIcon className="w-4 h-4 text-primary-400" />
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total</span>
+              </div>
+              <div className="text-3xl font-bold text-primary-400">{tasks.length}</div>
+            </div>
           </div>
-          <div className="flex-1 bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <div className="text-sm text-blue-600 font-medium">Total</div>
-            <div className="text-2xl font-bold text-blue-700">{tasks.length}</div>
-          </div>
+
+          {/* Progress bar */}
+          {tasks.length > 0 && (
+            <div>
+              <div className="flex justify-between text-xs text-slate-500 mb-1.5 font-medium">
+                <span>Progress</span>
+                <span className="text-primary-400">{progress}%</span>
+              </div>
+              <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(51,65,85,0.6)' }}>
+                <div
+                  className="h-full rounded-full transition-all duration-700"
+                  style={{
+                    width: `${progress}%`,
+                    background: 'linear-gradient(90deg, #14b8a6, #a855f7)',
+                    boxShadow: '0 0 8px rgba(20,184,166,0.5)',
+                  }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
+      {/* ── Tasks list ── */}
       {loading ? (
-        <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500"></div>
-          <p className="mt-4 text-gray-600">Loading tasks...</p>
+        <div className="flex flex-col items-center justify-center py-20 gap-4">
+          <div
+            className="w-12 h-12 rounded-full border-2 border-transparent animate-spin"
+            style={{ borderTopColor: '#14b8a6', borderRightColor: 'rgba(20,184,166,0.3)' }}
+          />
+          <p className="text-slate-500 font-medium text-sm">Loading tasks…</p>
         </div>
       ) : sortedTasks.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-lg p-12 text-center">
-          <div className="text-6xl mb-4">📋</div>
-          <h3 className="text-xl font-semibold text-gray-700 mb-2">No tasks for this day</h3>
-          <p className="text-gray-500">Create your first task to get started!</p>
+        <div
+          className="rounded-3xl p-16 text-center animate-fade-in"
+          style={{
+            background: 'rgba(20,30,50,0.6)',
+            border: '1px dashed rgba(51,65,85,0.6)',
+          }}
+        >
+          <div className="text-6xl mb-4 animate-float">📋</div>
+          <h3 className="text-lg font-bold text-slate-300 mb-2">No tasks scheduled</h3>
+          <p className="text-slate-500 text-sm mb-6">Start by creating your first task for this day.</p>
+          <button
+            id="day-empty-new-task-btn"
+            onClick={() => { setEditingTask(null); setIsFormOpen(true); }}
+            className="btn-primary inline-flex items-center gap-2"
+          >
+            <PlusIcon className="w-4 h-4" />
+            Create a Task
+          </button>
         </div>
       ) : (
         <div className="space-y-3">
@@ -292,18 +335,15 @@ const DayView: React.FC = () => {
         </div>
       )}
 
+      {/* Modals & Banners */}
       <TaskForm
         task={editingTask}
         isOpen={isFormOpen}
-        onClose={() => {
-          setIsFormOpen(false);
-          setEditingTask(null);
-        }}
+        onClose={() => { setIsFormOpen(false); setEditingTask(null); }}
         onSubmit={editingTask ? handleUpdateTask : handleCreateTask}
         initialDate={selectedDate}
       />
 
-      {/* Week-copy: 3-option picker dialog */}
       <WeekCopyDialog
         isOpen={showWeekCopyDialog}
         taskCount={tasks.length}
@@ -313,18 +353,14 @@ const DayView: React.FC = () => {
         copying={duplicating}
       />
 
-      {/* Month-copy: simple confirm dialog */}
       <ConfirmDialog
         isOpen={showMonthCopyDialog}
         title="Copy Tasks to Month"
         message={`This will copy all ${tasks.length} task(s) from ${format(new Date(selectedDate + 'T12:00:00'), 'MMMM d, yyyy')} to the next 30 days. Continue?`}
-        confirmText={duplicating ? 'Copying...' : 'Copy to Month'}
+        confirmText={duplicating ? 'Copying…' : 'Copy to Month'}
         cancelText="Cancel"
         onConfirm={() => handleDuplicateConfirm('month')}
-        onCancel={() => {
-          setShowMonthCopyDialog(false);
-          setDuplicateType(null);
-        }}
+        onCancel={() => { setShowMonthCopyDialog(false); setDuplicateType(null); }}
         type="info"
       />
 
@@ -341,7 +377,7 @@ const DayView: React.FC = () => {
         isOpen={showDeleteAllDialog}
         title="Delete All Tasks"
         message={`Are you sure you want to delete all ${tasks.length} task(s) for ${format(new Date(selectedDate), 'MMMM d, yyyy')}? This action cannot be undone.`}
-        confirmText={deletingAll ? 'Deleting...' : 'Delete All'}
+        confirmText={deletingAll ? 'Deleting…' : 'Delete All'}
         cancelText="Cancel"
         onConfirm={handleDeleteAllConfirm}
         onCancel={() => setShowDeleteAllDialog(false)}
@@ -352,4 +388,3 @@ const DayView: React.FC = () => {
 };
 
 export default DayView;
-
