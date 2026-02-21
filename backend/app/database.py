@@ -5,18 +5,28 @@ import os
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL is not set")
+    # Fall back to local SQLite for development
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'tasks.db')}"
+    print(f"DATABASE_URL not set. Using local SQLite: {DATABASE_URL}")
 
-# Fix old postgres:// URLs if any
+# Fix old postgres:// URLs (used by older Render/Heroku configs)
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,     # prevents stale connections
-    pool_size=5,
-    max_overflow=10,
-)
+# SQLite requires a different connect_args and does not support pool_size/max_overflow
+if DATABASE_URL.startswith("sqlite"):
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False},
+    )
+else:
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,     # prevents stale connections
+        pool_size=5,
+        max_overflow=10,
+    )
 
 SessionLocal = sessionmaker(
     autocommit=False,
