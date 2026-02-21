@@ -4,8 +4,14 @@ from .database import init_db
 from .routes import tasks
 from .reminder_service import start_reminder_service
 
-# Initialize database
-init_db()
+from fastapi import FastAPI
+from app.database import init_db
+
+app = FastAPI()
+
+@app.on_event("startup")
+def on_startup():
+    init_db()
 
 # Create FastAPI app
 app = FastAPI(title="Daily Task Scheduler API", version="1.0.0")
