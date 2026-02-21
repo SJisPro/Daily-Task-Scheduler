@@ -39,7 +39,7 @@ async def shutdown_event():
     """Stop reminder service when app shuts down"""
     stop_reminder_service()
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def root():
     return {"message": "Daily Task Scheduler API", "version": "1.0.0"}
 

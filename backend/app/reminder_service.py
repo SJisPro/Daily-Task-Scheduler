@@ -1,65 +1,71 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
-from plyer import notification
-import sys
+from datetime import datetime
+import os
+
 from .database import SessionLocal
 from .models import Task
 
-scheduler = BackgroundScheduler()
+scheduler = None
+
 
 def check_and_send_reminders():
-    """Check for tasks that need reminders and send notifications"""
+    """Check for tasks that need reminders and mark them as sent"""
     db: Session = SessionLocal()
     try:
         now = datetime.now()
         current_time = now.strftime("%H:%M")
         current_date = now.strftime("%Y-%m-%d")
-        
-        # Find tasks scheduled for now that are not completed
+
         tasks = db.query(Task).filter(
             Task.scheduled_date == current_date,
             Task.scheduled_time == current_time,
-            Task.is_completed == False,
-            Task.reminder_sent == False
+            Task.is_completed.is_(False),
+            Task.reminder_sent.is_(False)
         ).all()
-        
+
+        if not tasks:
+            return
+
         for task in tasks:
-            # Send desktop notification
-            try:
-                # Check if notifications should be disabled (e.g. in cloud/headless environment)
-                import os
-                if os.getenv("DISABLE_NOTIFICATIONS") != "true":
-                    notification.notify(
-                        title="Task Reminder",
-                        message=f"It's time for: {task.title}",
-                        timeout=10
-                    )
-                task.reminder_sent = True
-                db.commit()
-            except Exception as e:
-                print(f"Error sending notification: {e}")
-        
+            # ❌ DO NOT send desktop notifications in cloud
+            # ✅ Just mark reminder as sent
+            task.reminder_sent = True
+
+        db.commit()
+
     except Exception as e:
-        print(f"Error in reminder service: {e}")
+        print("Reminder job error:", e)
+        db.rollback()
     finally:
         db.close()
 
+
 def start_reminder_service():
-    """Start the reminder scheduler"""
-    # Run every minute to check for tasks
+    global scheduler
+
+    if scheduler and scheduler.running:
+        return  # Prevent duplicate schedulers
+
+    scheduler = BackgroundScheduler()
+
     scheduler.add_job(
         check_and_send_reminders,
-        trigger=CronTrigger(second=0),  # Run at the start of every minute
-        id='task_reminder',
-        name='Check and send task reminders',
-        replace_existing=True
+        trigger=CronTrigger(second=0),
+        id="task_reminder",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=30,
     )
+
     scheduler.start()
     print("Reminder service started")
 
-def stop_reminder_service():
-    """Stop the reminder scheduler"""
-    scheduler.shutdown()
 
+def stop_reminder_service():
+    global scheduler
+    if scheduler:
+        scheduler.shutdown(wait=False)
+        scheduler = None
