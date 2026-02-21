@@ -1,12 +1,13 @@
 import React from 'react';
 import { ArrowUturnLeftIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { CopyTargetType } from '../types';
 
 interface RollbackBannerProps {
   isVisible: boolean;
   taskCount: number;
   onRollback: () => void;
   onDismiss: () => void;
-  type: 'week' | 'month';
+  type: CopyTargetType;
   rollingBack?: boolean;
 }
 
@@ -32,16 +33,19 @@ const RollbackBanner: React.FC<RollbackBannerProps> = ({
               Tasks Duplicated Successfully!
             </h3>
             <p className="text-sm text-gray-600 mb-3">
-              {taskCount} task{taskCount !== 1 ? 's' : ''} copied to {type === 'week' ? 'the week' : 'the month'}.
-              Want to undo?
+              {taskCount} task{taskCount !== 1 ? 's' : ''} copied to{' '}
+              {type === 'weekdays' ? 'weekdays (Mon–Fri)'
+                : type === 'weekend' ? 'the weekend (Sat–Sun)'
+                  : type === 'week' ? 'the whole week'
+                    : 'the month'}.
+              {' '}Want to undo?
             </p>
             <div className="flex gap-2">
               <button
                 onClick={onRollback}
                 disabled={rollingBack}
-                className={`flex-1 px-4 py-2 bg-primary-500 text-white rounded-lg transition-colors font-medium flex items-center justify-center gap-2 ${
-                  rollingBack ? 'opacity-50 cursor-not-allowed' : 'hover:bg-primary-600'
-                }`}
+                className={`flex-1 px-4 py-2 bg-primary-500 text-white rounded-lg transition-colors font-medium flex items-center justify-center gap-2 ${rollingBack ? 'opacity-50 cursor-not-allowed' : 'hover:bg-primary-600'
+                  }`}
               >
                 {rollingBack ? (
                   <>

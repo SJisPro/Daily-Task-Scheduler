@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Task, TaskCreate } from '../types';
+import { Task, TaskCreate, CopyTargetType } from '../types';
 import { taskApi } from '../services/api';
 import TaskCard from '../components/TaskCard';
 import TaskForm from '../components/TaskForm';
 import ConfirmDialog from '../components/ConfirmDialog';
 import RollbackBanner from '../components/RollbackBanner';
+import WeekCopyDialog from '../components/WeekCopyDialog';
 import { DocumentDuplicateIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 const DayView: React.FC = () => {
@@ -16,8 +17,11 @@ const DayView: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(false);
-  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
-  const [duplicateType, setDuplicateType] = useState<'week' | 'month' | null>(null);
+  // Week-copy dialog (3-option picker)
+  const [showWeekCopyDialog, setShowWeekCopyDialog] = useState(false);
+  // Month-copy confirm dialog
+  const [showMonthCopyDialog, setShowMonthCopyDialog] = useState(false);
+  const [duplicateType, setDuplicateType] = useState<CopyTargetType | null>(null);
   const [duplicating, setDuplicating] = useState(false);
   const [duplicatedTaskIds, setDuplicatedTaskIds] = useState<number[]>([]);
   const [showRollbackBanner, setShowRollbackBanner] = useState(false);
@@ -95,27 +99,34 @@ const DayView: React.FC = () => {
     }
   };
 
-  const handleDuplicateClick = (type: 'week' | 'month') => {
+  const handleWeekCopyClick = () => {
     if (tasks.length === 0) {
       alert('No tasks to duplicate for this day!');
       return;
     }
-    setDuplicateType(type);
-    setShowDuplicateDialog(true);
+    setShowWeekCopyDialog(true);
   };
 
-  const handleDuplicateConfirm = async () => {
-    if (!duplicateType) return;
+  const handleMonthCopyClick = () => {
+    if (tasks.length === 0) {
+      alert('No tasks to duplicate for this day!');
+      return;
+    }
+    setDuplicateType('month');
+    setShowMonthCopyDialog(true);
+  };
 
+  /** Called when user picks an option in WeekCopyDialog OR confirms the month dialog */
+  const handleDuplicateConfirm = async (type: CopyTargetType) => {
     setDuplicating(true);
     try {
-      const response = await taskApi.duplicateTasks(selectedDate, duplicateType);
+      const response = await taskApi.duplicateTasks(selectedDate, type);
       const createdTaskIds = response.data.map(task => task.id);
       setDuplicatedTaskIds(createdTaskIds);
-      setShowDuplicateDialog(false);
-      setDuplicateType(null);
+      setDuplicateType(type);
+      setShowWeekCopyDialog(false);
+      setShowMonthCopyDialog(false);
       setShowRollbackBanner(true);
-      // Optionally reload tasks
       loadTasks();
     } catch (error: any) {
       console.error('Error duplicating tasks:', error);
@@ -219,17 +230,17 @@ const DayView: React.FC = () => {
             {tasks.length > 0 && (
               <div className="flex gap-2">
                 <button
-                  onClick={() => handleDuplicateClick('week')}
+                  onClick={handleWeekCopyClick}
                   className="px-4 py-2 bg-primary-100 text-primary-700 rounded-lg hover:bg-primary-200 transition-all font-medium flex items-center gap-2"
-                  title="Duplicate tasks to whole week"
+                  title="Duplicate tasks to days of this week"
                 >
                   <DocumentDuplicateIcon className="w-4 h-4" />
                   Copy to Week
                 </button>
                 <button
-                  onClick={() => handleDuplicateClick('month')}
+                  onClick={handleMonthCopyClick}
                   className="px-4 py-2 bg-accent-100 text-accent-700 rounded-lg hover:bg-accent-200 transition-all font-medium flex items-center gap-2"
-                  title="Duplicate tasks to whole month"
+                  title="Duplicate tasks to next 30 days"
                 >
                   <DocumentDuplicateIcon className="w-4 h-4" />
                   Copy to Month
@@ -292,21 +303,30 @@ const DayView: React.FC = () => {
         initialDate={selectedDate}
       />
 
-      {showDuplicateDialog && duplicateType && (
-        <ConfirmDialog
-          isOpen={showDuplicateDialog}
-          title={`Duplicate Tasks to ${duplicateType === 'week' ? 'Week' : 'Month'}`}
-          message={`This will copy all ${tasks.length} task(s) from ${format(new Date(selectedDate), 'MMMM d, yyyy')} to ${duplicateType === 'week' ? 'all 7 days of the week' : 'all days of the month'}. Continue?`}
-          confirmText={duplicating ? 'Duplicating...' : 'Duplicate'}
-          cancelText="Cancel"
-          onConfirm={handleDuplicateConfirm}
-          onCancel={() => {
-            setShowDuplicateDialog(false);
-            setDuplicateType(null);
-          }}
-          type="info"
-        />
-      )}
+      {/* Week-copy: 3-option picker dialog */}
+      <WeekCopyDialog
+        isOpen={showWeekCopyDialog}
+        taskCount={tasks.length}
+        sourceDate={format(new Date(selectedDate + 'T12:00:00'), 'EEEE, MMM d')}
+        onSelect={(type) => handleDuplicateConfirm(type)}
+        onCancel={() => setShowWeekCopyDialog(false)}
+        copying={duplicating}
+      />
+
+      {/* Month-copy: simple confirm dialog */}
+      <ConfirmDialog
+        isOpen={showMonthCopyDialog}
+        title="Copy Tasks to Month"
+        message={`This will copy all ${tasks.length} task(s) from ${format(new Date(selectedDate + 'T12:00:00'), 'MMMM d, yyyy')} to the next 30 days. Continue?`}
+        confirmText={duplicating ? 'Copying...' : 'Copy to Month'}
+        cancelText="Cancel"
+        onConfirm={() => handleDuplicateConfirm('month')}
+        onCancel={() => {
+          setShowMonthCopyDialog(false);
+          setDuplicateType(null);
+        }}
+        type="info"
+      />
 
       <RollbackBanner
         isVisible={showRollbackBanner}

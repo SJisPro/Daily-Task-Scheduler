@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Task, TaskCreate, TaskUpdate } from '../types';
+import { Task, TaskCreate, TaskUpdate, CopyTargetType } from '../types';
 
 const getBaseUrl = () => {
   let url = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -50,7 +50,7 @@ export const taskApi = {
   getMonth: (year: number, month: number) =>
     api.get<Task[]>(`/api/tasks/month/${year}/${month}`),
 
-  duplicateTasks: (sourceDate: string, targetType: 'week' | 'month') =>
+  duplicateTasks: (sourceDate: string, targetType: CopyTargetType) =>
     api.post<Task[]>(`/api/tasks/duplicate?source_date=${sourceDate}&target_type=${targetType}`),
 
   batchDelete: (taskIds: number[]) =>

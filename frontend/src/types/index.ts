@@ -27,3 +27,7 @@ export interface TaskUpdate {
 }
 
 export type ViewMode = 'day' | 'week' | 'month';
+
+/** The four copy-target modes exposed by the duplicate endpoint */
+export type WeekCopyType = 'weekdays' | 'weekend' | 'week';
+export type CopyTargetType = WeekCopyType | 'month';

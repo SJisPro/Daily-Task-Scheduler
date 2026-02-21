@@ -288,42 +288,66 @@ def get_month_tasks(year: int, month: int, db: Session = Depends(get_db)):
 @router.post("/duplicate", response_model=List[schemas.TaskResponse], status_code=201)
 def duplicate_tasks(
     source_date: str = Query(..., description="Source date in YYYY-MM-DD format"),
-    target_type: str = Query(..., description="Target type: 'week' or 'month'"),
+    target_type: str = Query(..., description="Target type: 'weekdays', 'weekend', 'week', or 'month'"),
     db: Session = Depends(get_db)
 ):
-    """Duplicate all tasks from a source date to the entire week or month"""
+    """Duplicate all tasks from a source date to weekdays, weekend, whole week, or month"""
     try:
         # Parse source date
         source = datetime.strptime(source_date, "%Y-%m-%d").date()
-        
+
         # Get all tasks from source date
         source_tasks = db.query(models.Task).filter(
             models.Task.scheduled_date == source_date
         ).all()
-        
+
         if not source_tasks:
             raise HTTPException(status_code=404, detail="No tasks found for the source date")
-        
+
         # Determine target dates
         target_dates = []
-        if target_type == "week":
-            # Duplicate for the next 6 days (rolling week)
-            for i in range(1, 7):
-                target_date = source + timedelta(days=i)
-                target_dates.append(target_date.strftime("%Y-%m-%d"))
+        if target_type == "weekdays":
+            # Copy to Monday–Friday of the source's calendar week (exclude source date itself)
+            monday = source - timedelta(days=source.weekday())  # weekday(): 0=Mon, 6=Sun
+            for i in range(5):  # Mon(0) to Fri(4)
+                d = monday + timedelta(days=i)
+                if d != source:
+                    target_dates.append(d.strftime("%Y-%m-%d"))
+        elif target_type == "weekend":
+            # Copy to Saturday and Sunday of the source's calendar week (exclude source itself)
+            monday = source - timedelta(days=source.weekday())
+            for i in range(5, 7):  # Sat(5), Sun(6)
+                d = monday + timedelta(days=i)
+                if d != source:
+                    target_dates.append(d.strftime("%Y-%m-%d"))
+        elif target_type == "week":
+            # Copy to all 7 days of the source's calendar week (exclude source itself)
+            monday = source - timedelta(days=source.weekday())
+            for i in range(7):
+                d = monday + timedelta(days=i)
+                if d != source:
+                    target_dates.append(d.strftime("%Y-%m-%d"))
         elif target_type == "month":
             # Duplicate for the next 30 days (rolling month)
             for i in range(1, 31):
                 target_date = source + timedelta(days=i)
                 target_dates.append(target_date.strftime("%Y-%m-%d"))
         else:
-            raise HTTPException(status_code=400, detail="target_type must be 'week' or 'month'")
-        
+            raise HTTPException(
+                status_code=400,
+                detail="target_type must be 'weekdays', 'weekend', 'week', or 'month'"
+            )
+
+        if not target_dates:
+            raise HTTPException(
+                status_code=400,
+                detail="No valid target dates found. The source date may already be the only day in the target range."
+            )
+
         # Duplicate tasks for each target date
         created_tasks = []
         for target_date in target_dates:
             for source_task in source_tasks:
-                # Create new task with same details but different date
                 new_task = models.Task(
                     title=source_task.title,
                     description=source_task.description,
@@ -334,18 +358,16 @@ def duplicate_tasks(
                 )
                 db.add(new_task)
                 created_tasks.append(new_task)
-        
+
         db.commit()
-        
-        # Refresh all created tasks
+
         for task in created_tasks:
             db.refresh(task)
-        
+
         return created_tasks
-        
+
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error duplicating tasks: {str(e)}")
-
