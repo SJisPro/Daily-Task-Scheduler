@@ -2,7 +2,7 @@
     "name": "Daily Task Scheduler",
     "short_name": "TaskPlan",
     "description": "Plan, track and manage your tasks by day, week or month.",
-    "start_url": "/day",
+    "start_url": "/",
     "display": "standalone",
     "orientation": "portrait-primary",
     "background_color": "#0a0f1e",

@@ -23,9 +23,14 @@ if DATABASE_URL.startswith("sqlite"):
 else:
     engine = create_engine(
         DATABASE_URL,
-        pool_pre_ping=True,     # prevents stale connections
-        pool_size=5,
-        max_overflow=10,
+        # Fail fast if DB is unreachable (don't hang for 30 s at startup)
+        connect_args={"connect_timeout": 10},
+        # Pool settings tuned for Supabase PgBouncer (session mode)
+        pool_pre_ping=True,       # drop stale connections before use
+        pool_size=2,              # free tier: keep the pool small
+        max_overflow=3,
+        pool_recycle=300,         # recycle connections every 5 min
+        pool_timeout=20,          # give up waiting for a pool slot after 20 s
     )
 
 SessionLocal = sessionmaker(
@@ -47,6 +52,13 @@ def get_db():
 
 def init_db():
     """
-    Only call this once on startup
+    Create any missing tables. Non-fatal — if the DB is unreachable at
+    startup (e.g. Supabase cold-start, wrong URL) the worker still boots
+    and Render can open the HTTP port. Errors surface per-request instead.
     """
-    Base.metadata.create_all(bind=engine)
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("[database] Tables verified/created OK.")
+    except Exception as exc:
+        print(f"[database] WARNING: init_db() failed — {exc}")
+        print("[database] The server will still start. Check DATABASE_URL.")
