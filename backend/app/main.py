@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
-from .database import init_db
 from .routes import tasks
 from .routes import reminders
 
@@ -32,11 +31,17 @@ app.include_router(reminders.router)  # kept for backward-compat; not called by 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 @app.on_event("startup")
 async def startup_event():
-    # NOTE: The APScheduler reminder service has been removed.
-    # Reminders are now driven entirely by the frontend (useReminders.ts),
-    # which polls GET /api/tasks/?date=<today> every 60 seconds and fires
-    # browser notifications locally. No background thread is needed here.
-    init_db()   # create/verify DB tables (non-fatal if DB is unreachable)
+    # DB tables are created once at initial setup (run init_db() manually or
+    # via a one-off command). We do NOT call it here because:
+    #   1. create_all() opens a DB connection synchronously, blocking the
+    #      event loop and preventing Gunicorn from serving HTTP until it
+    #      completes (or times out). Render's port scanner then reports
+    #      "no open HTTP ports" and kills the deployment.
+    #   2. Tables already exist in production — idempotent but unnecessary.
+    #
+    # If you need to create tables on a fresh DB, run once locally:
+    #   python -c "from app.database import init_db; init_db()"
+    pass
 
 # ── Root / Health ─────────────────────────────────────────────────────────────
 @app.api_route("/", methods=["GET", "HEAD"])
