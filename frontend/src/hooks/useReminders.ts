@@ -1,145 +1,241 @@
 /**
- * useReminders.ts
+ * useReminders.ts – Fully automatic daily notification system.
  *
- * A hook that:
- *  1. Requests browser Notification permission once.
- *  2. Polls GET /api/reminders/due every 60 seconds.
- *  3. For each due reminder:
- *       - Fires a browser Notification with title, body, and action buttons
- *         (Acknowledge / Snooze 10 min).
- *       - Shows an in-app toast as fallback when the tab is visible.
- *  4. Acknowledges the reminder immediately (fire-and-forget) so the server
- *     doesn't re-deliver it on the next poll.
+ * Three automatic notifications every day — no per-task setup required:
  *
- * Usage – mount once at the top of <App>:
+ *  1. 09:00 AM  → "Morning Schedule": lists every task scheduled today.
+ *  2. T−10 min  → "Pre-task alert":   fires 10 minutes before each task
+ *                  that is scheduled for TODAY and not yet completed.
+ *  3. 11:59 PM  → "Daily Report":     summary of completed vs missed tasks.
+ *
+ * State is stored in localStorage so a notification is never shown twice
+ * for the same day, even across page refreshes.
+ *
+ * The hook polls every 60 seconds (aligns with the browser's minute tick).
+ * It calls the existing GET /api/tasks/?date= endpoint — no new backend
+ * routes are needed.
+ *
+ * Usage — already mounted once in <App>:
  *   useReminders();
  */
 
 import { useEffect, useRef, useCallback } from 'react';
-import { reminderApi, Reminder } from '../services/reminders';
+import { format, differenceInMinutes } from 'date-fns';
+import { taskApi } from '../services/api';
+import { Task } from '../types';
 
-const POLL_INTERVAL_MS = 60_000; // 60 seconds
+const POLL_MS = 60_000; // 60 seconds
+const STORAGE_KEY = 'daily_reminders_shown';
 
-// Keep track of reminder IDs we've already shown in this browser session so
-// we don't double-fire if the API returns the same reminder twice before ACK
-// finishes propagating.
-const shownSet = new Set<number>();
+// ─── localStorage helpers ──────────────────────────────────────────────────────
+
+interface ShownToday {
+    /** Date this record applies to, "yyyy-MM-dd" */
+    date: string;
+    /** True once the 9 AM morning schedule notification has fired */
+    morning_schedule: boolean;
+    /** True once the 11:59 PM daily report notification has fired */
+    daily_report: boolean;
+    /** task.id values for which the 10-min pre-task alert has already fired */
+    tasks: number[];
+}
+
+function getShownToday(): ShownToday {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+            const parsed: ShownToday = JSON.parse(raw);
+            if (parsed.date === today) return parsed;
+        }
+    } catch { /* ignore parse errors */ }
+    // New day — start fresh
+    return { date: today, morning_schedule: false, daily_report: false, tasks: [] };
+}
+
+function saveShown(data: ShownToday) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch { /* ignore */ }
+}
+
+// ─── Notification helpers ──────────────────────────────────────────────────────
+
+function canNotify(): boolean {
+    return 'Notification' in window && Notification.permission === 'granted';
+}
+
+function fireNotification(title: string, body: string, tag: string) {
+    if (!canNotify()) return;
+    const n = new Notification(title, {
+        body,
+        icon: '/favicon.ico',
+        tag,             // replaces previous notification with same tag
+        requireInteraction: false,
+    });
+    n.onclick = () => { window.focus(); n.close(); };
+}
+
+/** "14:30" → "2:30 PM" */
+function fmt12(time: string): string {
+    const [h, m] = time.split(':').map(Number);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const hour = h % 12 || 12;
+    return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`;
+}
+
+// ─── The three notification types ─────────────────────────────────────────────
+
+function sendMorningSchedule(tasks: Task[]) {
+    const pending = tasks
+        .filter(t => !t.is_completed)
+        .sort((a, b) => a.scheduled_time.localeCompare(b.scheduled_time));
+
+    if (pending.length === 0) {
+        fireNotification(
+            '📅 Good morning! No tasks today',
+            'You have a free day — enjoy! 🎉',
+            'morning-schedule',
+        );
+        return;
+    }
+
+    // Show up to 5 tasks; notification body can't hold unlimited text
+    const lines = pending
+        .slice(0, 5)
+        .map(t => `${fmt12(t.scheduled_time)}  ${t.title}`)
+        .join('\n');
+    const overflow = pending.length > 5 ? `\n…and ${pending.length - 5} more` : '';
+
+    fireNotification(
+        `📅 Good morning! ${pending.length} task${pending.length !== 1 ? 's' : ''} today`,
+        lines + overflow,
+        'morning-schedule',
+    );
+}
+
+function sendPreTaskAlert(task: Task) {
+    fireNotification(
+        `⏰ Starting in 10 min — ${task.title}`,
+        task.description
+            ? `${fmt12(task.scheduled_time)}  ·  ${task.description}`
+            : `Scheduled at ${fmt12(task.scheduled_time)}`,
+        `pre-task-${task.id}`,
+    );
+}
+
+function sendDailyReport(tasks: Task[]) {
+    if (tasks.length === 0) {
+        fireNotification(
+            '🌙 Daily Report',
+            'No tasks were scheduled today.',
+            'daily-report',
+        );
+        return;
+    }
+
+    const completed = tasks.filter(t => t.is_completed);
+    const missed = tasks.filter(t => !t.is_completed);
+
+    const parts: string[] = [];
+    if (completed.length > 0) parts.push(`✅ Completed: ${completed.length}`);
+    if (missed.length > 0) parts.push(`❌ Missed: ${missed.length}`);
+
+    const missedNames = missed
+        .slice(0, 3)
+        .map(t => t.title)
+        .join(', ');
+
+    fireNotification(
+        `🌙 Day complete — ${completed.length}/${tasks.length} done`,
+        parts.join('  ·  ') + (missedNames ? `\nMissed: ${missedNames}` : ''),
+        'daily-report',
+    );
+}
+
+// ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useReminders() {
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    // ── Request notification permission ────────────────────────────────────────
+    // Request notification permission once on mount
     useEffect(() => {
         if ('Notification' in window && Notification.permission === 'default') {
             Notification.requestPermission();
         }
     }, []);
 
-    // ── Fire a browser notification for one reminder ───────────────────────────
-    const notify = useCallback(async (reminder: Reminder) => {
-        if (shownSet.has(reminder.id)) return;
-        shownSet.add(reminder.id);
+    const poll = useCallback(async () => {
+        if (!canNotify()) return;
 
-        const title = reminder.task_title ?? 'Task Reminder';
-        const time = reminder.task_scheduled_time ?? '';
-        const date = reminder.task_scheduled_date ?? '';
+        const now = new Date();
+        const today = format(now, 'yyyy-MM-dd');
+        const h = now.getHours();
+        const m = now.getMinutes();
 
-        let bodyLines: string[] = [];
-        if (reminder.reminder_type === 'missed') {
-            bodyLines = [`📌 Missed task from ${date}`, reminder.task_description ?? ''];
-        } else if (reminder.reminder_type === 'before' && reminder.before_minutes > 0) {
-            bodyLines = [
-                `Due in ${reminder.before_minutes} min  •  ${time}`,
-                reminder.task_description ?? '',
-            ];
-        } else {
-            bodyLines = [`Due now  •  ${time}`, reminder.task_description ?? ''];
-        }
-        const body = bodyLines.filter(Boolean).join('\n');
+        const shown = getShownToday();
+        let changed = false;
 
-        // ── Browser Notification (works even when tab is in background) ──────────
-        if ('Notification' in window && Notification.permission === 'granted') {
-            const notif = new Notification(title, {
-                body,
-                icon: '/favicon.ico',
-                tag: `reminder-${reminder.id}`,   // replaces any previous notif with same tag
-                requireInteraction: true,          // stays until user dismisses
-            });
-
-            // Clicking the notification focuses the tab
-            notif.onclick = () => {
-                window.focus();
-                notif.close();
-            };
-        }
-
-        // ── ACK immediately so the server won't re-deliver on next poll ──────────
+        // Fetch today's tasks — single call reused by all three checks
+        let tasks: Task[] = [];
         try {
-            await reminderApi.acknowledge(reminder.id);
+            const res = await taskApi.getAll(today);
+            tasks = res.data || [];
         } catch {
-            // Non-fatal – worst case the user sees it again on next poll
-            shownSet.delete(reminder.id);
+            return; // backend not ready — try again next tick
         }
+
+        // ── 1. Morning schedule at exactly 09:00 ─────────────────────────────────
+        // The poll runs every 60 s so it will land within the 09:00 minute window.
+        if (h === 9 && m === 0 && !shown.morning_schedule) {
+            sendMorningSchedule(tasks);
+            shown.morning_schedule = true;
+            changed = true;
+        }
+
+        // ── 2. Pre-task alerts — 10 minutes before each upcoming task ─────────────
+        for (const task of tasks) {
+            if (task.is_completed) continue; // already done
+            if (shown.tasks.includes(task.id)) continue; // already alerted
+
+            // Build a Date for the task's scheduled time on today's date
+            const [th, tm] = task.scheduled_time.split(':').map(Number);
+            const taskDt = new Date(now);
+            taskDt.setHours(th, tm, 0, 0);
+
+            // differenceInMinutes floors towards zero → window [9, 11] covers the
+            // full 60-second poll granularity around the 10-min mark
+            const diffMin = differenceInMinutes(taskDt, now);
+            if (diffMin >= 9 && diffMin <= 11) {
+                sendPreTaskAlert(task);
+                shown.tasks = [...shown.tasks, task.id];
+                changed = true;
+            }
+        }
+
+        // ── 3. Daily report at 23:59 ─────────────────────────────────────────────
+        if (h === 23 && m === 59 && !shown.daily_report) {
+            sendDailyReport(tasks);
+            shown.daily_report = true;
+            changed = true;
+        }
+
+        if (changed) saveShown(shown);
     }, []);
 
-    // ── Poll loop ─────────────────────────────────────────────────────────────
-    const poll = useCallback(async () => {
-        try {
-            const res = await reminderApi.getDue();
-            const { reminders } = res.data;
-            for (const r of reminders) {
-                // Run notifications sequentially so they don't pile up
-                await notify(r);
-            }
-        } catch {
-            // Silently skip – backend may be starting up
-        }
-    }, [notify]);
-
     useEffect(() => {
-        // Immediately poll once when the hook mounts, then on interval
-        poll();
-        pollRef.current = setInterval(poll, POLL_INTERVAL_MS);
-        return () => {
-            if (pollRef.current) clearInterval(pollRef.current);
-        };
+        poll(); // run immediately on mount
+        pollRef.current = setInterval(poll, POLL_MS);
+        return () => { if (pollRef.current) clearInterval(pollRef.current); };
     }, [poll]);
 }
 
-// ─── Exported helpers that components can reuse ───────────────────────────────
+// ─── Re-exports kept for backward-compatibility with ReminderPanel.tsx ────────
+// (ReminderPanel is no longer imported anywhere but still compiles cleanly)
 
-/** Snooze options shown in the UI (value = minutes). */
-export const SNOOZE_OPTIONS = [
-    { label: '5 min', value: 5 as const },
-    { label: '10 min', value: 10 as const },
-    { label: '30 min', value: 30 as const },
-    { label: '1 hour', value: 60 as const },
-];
-
-/** Before-time options shown in the reminder creation UI. */
-export const BEFORE_OPTIONS = [
-    { label: 'At task time', value: 0 },
-    { label: '5 min before', value: 5 },
-    { label: '10 min before', value: 10 },
-    { label: '15 min before', value: 15 },
-    { label: '30 min before', value: 30 },
-    { label: '1 hour before', value: 60 },
-];
-
-export const RECURRENCE_OPTIONS = [
-    { label: 'One-time', value: null },
-    { label: 'Every day', value: 'daily' },
-    { label: 'Every week', value: 'weekly' },
-    { label: 'Weekdays', value: 'weekdays' },
-    { label: 'Custom days…', value: 'custom' },
-];
-
-export const WEEKDAY_OPTIONS = [
-    { label: 'Mon', value: 0 },
-    { label: 'Tue', value: 1 },
-    { label: 'Wed', value: 2 },
-    { label: 'Thu', value: 3 },
-    { label: 'Fri', value: 4 },
-    { label: 'Sat', value: 5 },
-    { label: 'Sun', value: 6 },
-];
+/** @deprecated Reminders are now automatic — no per-task configuration needed */
+export const SNOOZE_OPTIONS: { label: string; value: number }[] = [];
+/** @deprecated */
+export const BEFORE_OPTIONS: { label: string; value: number }[] = [];
+/** @deprecated */
+export const RECURRENCE_OPTIONS: { label: string; value: string | null }[] = [];
+/** @deprecated */
+export const WEEKDAY_OPTIONS: { label: string; value: number }[] = [];
