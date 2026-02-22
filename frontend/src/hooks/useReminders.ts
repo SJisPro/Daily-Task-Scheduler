@@ -24,42 +24,7 @@ import { Task } from '../types';
 
 const POLL_MS = 60_000;
 const STORAGE_KEY = 'daily_reminders_shown';
-const ONE_SIGNAL_APP_ID = import.meta.env.VITE_ONESIGNAL_APP_ID as string | undefined;
-
-// ─── OneSignal initialisation ─────────────────────────────────────────────────
-
-declare global {
-    interface Window {
-        OneSignalDeferred?: Array<(os: OneSignalType) => void | Promise<void>>;
-    }
-}
-interface OneSignalType {
-    init: (opts: object) => Promise<void>;
-    Notifications: { requestPermission: () => Promise<void>; permission: boolean };
-    User: { PushSubscription: { optIn: () => Promise<void> } };
-}
-
-function initOneSignal() {
-    if (!ONE_SIGNAL_APP_ID) return;
-
-    window.OneSignalDeferred = window.OneSignalDeferred || [];
-    window.OneSignalDeferred.push(async (OneSignal: OneSignalType) => {
-        await OneSignal.init({
-            appId: ONE_SIGNAL_APP_ID,
-            serviceWorkerParam: { scope: '/' },
-            serviceWorkerPath: 'OneSignalSDKWorker.js',
-            // Show the default browser permission prompt; no extra Slidedown UI
-            notifyButton: { enable: false },
-        });
-
-        // Request permission if not already granted
-        if (!OneSignal.Notifications.permission) {
-            await OneSignal.Notifications.requestPermission();
-        }
-
-        console.log('[OneSignal] Initialised. Push subscription active.');
-    });
-}
+// OneSignal is initialised in index.html — no duplicate init needed here.
 
 // ─── localStorage helpers (Layer 2) ──────────────────────────────────────────
 
@@ -156,12 +121,11 @@ export function useReminders() {
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useEffect(() => {
-        // Request native notification permission (for Layer 2 fallback)
+        // Request native notification permission for the Layer 2 in-browser fallback.
+        // OneSignal (Layer 1) is already initialised in index.html.
         if ('Notification' in window && Notification.permission === 'default') {
             Notification.requestPermission();
         }
-        // Initialise OneSignal (Layer 1 — background push)
-        initOneSignal();
     }, []);
 
     const poll = useCallback(async () => {

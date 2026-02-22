@@ -23,12 +23,23 @@
   <title>Daily Task Scheduler</title>
 
   <!--
-      OneSignal Web Push SDK
-      Docs: https://documentation.onesignal.com/docs/web-push-quickstart
-      The SDK registers OneSignalSDKWorker.js (in /public/) as the service
-      worker automatically — no manual SW registration needed.
+      OneSignal Web Push SDK — initialised with your App ID.
+      The App ID is intentionally public (like Firebase's apiKey).
+      Keep ONESIGNAL_API_KEY secret (only used on the backend/Render).
     -->
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+  <script>
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    OneSignalDeferred.push(async function (OneSignal) {
+      await OneSignal.init({
+        appId: "46509ea1-ba58-4e37-a2d8-627884c406a5",
+        safari_web_id: "web.onesignal.auto.2bb5f943-5f36-4c5b-98f3-fab8c5252044",
+        serviceWorkerParam: { scope: "/" },
+        serviceWorkerPath: "OneSignalSDKWorker.js",
+        notifyButton: { enable: true },   // shows the subscription bell / prompt
+      });
+    });
+  </script>
 </head>
 
 <body>
