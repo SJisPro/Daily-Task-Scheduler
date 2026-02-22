@@ -155,7 +155,7 @@ const MonthView: React.FC = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-2 space-y-6 animate-fade-in">
+    <div className="max-w-7xl mx-auto px-0 sm:px-4 py-2 space-y-4 sm:space-y-6 animate-fade-in">
       {/* Month header */}
       <div
         className="rounded-2xl overflow-hidden"
@@ -166,20 +166,21 @@ const MonthView: React.FC = () => {
         }}
       >
         <div className="h-1" style={{ background: 'linear-gradient(90deg, #14b8a6, #a855f7)' }} />
-        <div className="p-5 flex items-center justify-between">
+        <div className="p-3 sm:p-5 flex items-center justify-between gap-2">
           <button
             id="month-prev-btn"
             onClick={() => navigateMonth('prev')}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-300 transition-all duration-200"
+            className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-sm font-semibold text-slate-300 transition-all duration-200 flex-shrink-0"
             style={{ background: 'rgba(51,65,85,0.4)', border: '1px solid rgba(51,65,85,0.6)' }}
             onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'rgba(20,184,166,0.15)'}
             onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'rgba(51,65,85,0.4)'}
           >
-            <ChevronLeftIcon className="w-4 h-4" /> Prev
+            <ChevronLeftIcon className="w-4 h-4" />
+            <span className="hidden sm:inline">Prev</span>
           </button>
 
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-slate-100">
+          <div className="text-center min-w-0">
+            <h2 className="text-lg sm:text-2xl font-bold text-slate-100 truncate">
               {format(currentMonth, 'MMMM yyyy')}
             </h2>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
@@ -187,25 +188,27 @@ const MonthView: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {tasks.length > 0 && (
               <button
                 id="month-delete-all-btn"
                 onClick={() => setShowDeleteAllDialog(true)}
-                className="btn-danger flex items-center gap-2"
+                className="btn-danger flex items-center gap-1 sm:gap-2 !px-3 sm:!px-4"
               >
-                <TrashIcon className="w-4 h-4" /> Delete All
+                <TrashIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">Delete All</span>
               </button>
             )}
             <button
               id="month-next-btn"
               onClick={() => navigateMonth('next')}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-300 transition-all duration-200"
+              className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-sm font-semibold text-slate-300 transition-all duration-200"
               style={{ background: 'rgba(51,65,85,0.4)', border: '1px solid rgba(51,65,85,0.6)' }}
               onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'rgba(20,184,166,0.15)'}
               onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'rgba(51,65,85,0.4)'}
             >
-              Next <ChevronRightIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Next</span>
+              <ChevronRightIcon className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -224,10 +227,11 @@ const MonthView: React.FC = () => {
         <div className="grid grid-cols-7" style={{ borderBottom: '1px solid rgba(51,65,85,0.4)' }}>
           {WEEK_DAYS.map(day => (
             <div key={day}
-              className="py-3 text-center text-xs font-bold text-slate-500 uppercase tracking-widest"
+              className="py-2 sm:py-3 text-center text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-widest"
               style={{ borderRight: day !== 'Sun' ? '1px solid rgba(51,65,85,0.25)' : undefined }}
             >
-              {day}
+              <span className="hidden sm:inline">{day}</span>
+              <span className="sm:hidden">{day.slice(0, 1)}</span>
             </div>
           ))}
         </div>
@@ -254,7 +258,7 @@ const MonthView: React.FC = () => {
                 key={`day-${day.getTime()}-${di}`}
                 className="relative transition-all duration-200 cursor-pointer"
                 style={{
-                  minHeight: '100px',
+                  minHeight: 'clamp(60px, 10vw, 100px)',
                   borderRight: !isLastCol ? '1px solid rgba(51,65,85,0.2)' : undefined,
                   borderBottom: '1px solid rgba(51,65,85,0.2)',
                   background: isToday
@@ -274,9 +278,9 @@ const MonthView: React.FC = () => {
                 }}
               >
                 {/* Day number */}
-                <div className="p-2">
+                <div className="p-1 sm:p-2">
                   <div
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold mb-1.5"
+                    className="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold mb-1"
                     style={isToday
                       ? { background: 'linear-gradient(135deg,#14b8a6,#0d9488)', color: '#fff', boxShadow: '0 3px 10px rgba(20,184,166,0.5)' }
                       : { color: isSameMonth(day, currentMonth) ? '#cbd5e1' : '#334155' }
@@ -288,7 +292,7 @@ const MonthView: React.FC = () => {
                   {/* Task count pill */}
                   {dayTasks.length > 0 && isSameMonth(day, currentMonth) && (
                     <div className="flex items-center gap-1 mb-1">
-                      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(51,65,85,0.5)' }}>
+                      <div className="flex-1 h-1 sm:h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(51,65,85,0.5)' }}>
                         <div
                           className="h-full rounded-full transition-all duration-300"
                           style={{
@@ -299,34 +303,47 @@ const MonthView: React.FC = () => {
                           }}
                         />
                       </div>
-                      <span className="text-[9px] text-slate-500 font-medium">{completedCount}/{dayTasks.length}</span>
+                      <span className="hidden sm:inline text-[9px] text-slate-500 font-medium">{completedCount}/{dayTasks.length}</span>
                     </div>
                   )}
 
-                  {/* Task chips */}
-                  {dayTasks.slice(0, 2).map(task => (
-                    <div
-                      key={task.id}
-                      onClick={e => { e.stopPropagation(); handleEdit(task); }}
-                      className="truncate rounded px-1.5 py-0.5 mb-0.5 text-[10px] font-medium transition-all duration-150"
-                      style={{
-                        background: task.is_completed ? 'rgba(34,197,94,0.12)' : 'rgba(20,184,166,0.1)',
-                        color: task.is_completed ? '#4ade80' : '#2dd4bf',
-                        border: task.is_completed ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(20,184,166,0.2)',
-                        textDecoration: task.is_completed ? 'line-through' : undefined,
-                      }}
-                      title={task.title}
-                    >
-                      {task.title}
+                  {/* Task chips — desktop only */}
+                  <div className="hidden sm:block">
+                    {dayTasks.slice(0, 2).map(task => (
+                      <div
+                        key={task.id}
+                        onClick={e => { e.stopPropagation(); handleEdit(task); }}
+                        className="truncate rounded px-1.5 py-0.5 mb-0.5 text-[10px] font-medium transition-all duration-150"
+                        style={{
+                          background: task.is_completed ? 'rgba(34,197,94,0.12)' : 'rgba(20,184,166,0.1)',
+                          color: task.is_completed ? '#4ade80' : '#2dd4bf',
+                          border: task.is_completed ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(20,184,166,0.2)',
+                          textDecoration: task.is_completed ? 'line-through' : undefined,
+                        }}
+                        title={task.title}
+                      >
+                        {task.title}
+                      </div>
+                    ))}
+                    {dayTasks.length > 2 && (
+                      <div className="text-[10px] text-slate-600 font-medium px-1">+{dayTasks.length - 2} more</div>
+                    )}
+                  </div>
+
+                  {/* Mobile: show task count badge instead */}
+                  {dayTasks.length > 0 && isSameMonth(day, currentMonth) && (
+                    <div className="sm:hidden flex justify-center mt-0.5">
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                        style={{ background: 'rgba(20,184,166,0.15)', color: '#2dd4bf' }}
+                      >
+                        {dayTasks.length}
+                      </span>
                     </div>
-                  ))}
-                  {dayTasks.length > 2 && (
-                    <div className="text-[10px] text-slate-600 font-medium px-1">+{dayTasks.length - 2} more</div>
                   )}
 
-                  {/* Action buttons on hover */}
+                  {/* Action buttons on hover — desktop only */}
                   {isHovered && isSameMonth(day, currentMonth) && (
-                    <div className="mt-1.5 space-y-1 animate-fade-in" onClick={e => e.stopPropagation()}>
+                    <div className="hidden sm:block mt-1.5 space-y-1 animate-fade-in" onClick={e => e.stopPropagation()}>
                       <button
                         id={`month-add-task-${dateStr}`}
                         onClick={e => { e.stopPropagation(); setSelectedDate(dateStr); setEditingTask(null); setIsFormOpen(true); }}

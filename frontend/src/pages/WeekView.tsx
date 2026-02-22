@@ -167,7 +167,7 @@ const WeekView: React.FC = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-2 space-y-6 animate-fade-in">
+    <div className="max-w-7xl mx-auto px-0 sm:px-4 py-2 space-y-4 sm:space-y-6 animate-fade-in">
       {/* Week header */}
       <div
         className="rounded-2xl overflow-hidden"
@@ -178,20 +178,21 @@ const WeekView: React.FC = () => {
         }}
       >
         <div className="h-1" style={{ background: 'linear-gradient(90deg, #14b8a6, #a855f7)' }} />
-        <div className="p-5 flex items-center justify-between">
+        <div className="p-3 sm:p-5 flex items-center justify-between gap-2">
           <button
             id="week-prev-btn"
             onClick={() => navigateWeek('prev')}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-300 transition-all duration-200"
+            className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-sm font-semibold text-slate-300 transition-all duration-200 flex-shrink-0"
             style={{ background: 'rgba(51,65,85,0.4)', border: '1px solid rgba(51,65,85,0.6)' }}
             onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'rgba(20,184,166,0.15)'}
             onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'rgba(51,65,85,0.4)'}
           >
-            <ChevronLeftIcon className="w-4 h-4" /> Prev
+            <ChevronLeftIcon className="w-4 h-4" />
+            <span className="hidden sm:inline">Prev</span>
           </button>
 
-          <div className="text-center">
-            <h2 className="text-xl font-bold text-slate-100">
+          <div className="text-center min-w-0">
+            <h2 className="text-base sm:text-xl font-bold text-slate-100 truncate">
               {format(weekStart, 'MMM d')} – {format(addDays(weekStart, 6), 'MMM d, yyyy')}
             </h2>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
@@ -199,32 +200,34 @@ const WeekView: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {tasks.length > 0 && (
               <button
                 id="week-delete-all-btn"
                 onClick={() => setShowDeleteAllDialog(true)}
-                className="btn-danger flex items-center gap-2"
+                className="btn-danger flex items-center gap-1 sm:gap-2 !px-3 sm:!px-4"
               >
-                <TrashIcon className="w-4 h-4" /> Delete All
+                <TrashIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">Delete All</span>
               </button>
             )}
             <button
               id="week-next-btn"
               onClick={() => navigateWeek('next')}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-300 transition-all duration-200"
+              className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-sm font-semibold text-slate-300 transition-all duration-200"
               style={{ background: 'rgba(51,65,85,0.4)', border: '1px solid rgba(51,65,85,0.6)' }}
               onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'rgba(20,184,166,0.15)'}
               onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'rgba(51,65,85,0.4)'}
             >
-              Next <ChevronRightIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Next</span>
+              <ChevronRightIcon className="w-4 h-4" />
             </button>
           </div>
         </div>
       </div>
 
-      {/* Week grid */}
-      <div className="grid grid-cols-7 gap-3">
+      {/* Week grid — 7 cols on desktop, stacked on mobile */}
+      <div className="hidden sm:grid grid-cols-7 gap-3">
         {weekDays.map((day, index) => {
           const dayTasks = getTasksForDay(day);
           const isToday = isSameDay(day, today);
@@ -358,6 +361,109 @@ const WeekView: React.FC = () => {
                   </div>
                 )}
               </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Mobile: stacked day list */}
+      <div className="sm:hidden space-y-3">
+        {weekDays.map((day, index) => {
+          const dayTasks = getTasksForDay(day);
+          const isToday = isSameDay(day, today);
+          const isPast = day < today && !isToday;
+          const completedDay = dayTasks.filter(t => t.is_completed).length;
+
+          return (
+            <div
+              key={index}
+              className="rounded-2xl overflow-hidden"
+              style={{
+                background: isToday ? 'rgba(20,184,166,0.08)' : 'rgba(20,30,50,0.6)',
+                backdropFilter: 'blur(12px)',
+                border: isToday ? '1px solid rgba(20,184,166,0.4)' : '1px solid rgba(51,65,85,0.4)',
+                boxShadow: isToday ? '0 0 20px rgba(20,184,166,0.1)' : undefined,
+                opacity: isPast ? 0.75 : 1,
+              }}
+            >
+              {/* Day header row */}
+              <div
+                className="px-4 py-3 flex items-center justify-between"
+                style={{
+                  borderBottom: `1px solid ${isToday ? 'rgba(20,184,166,0.25)' : 'rgba(51,65,85,0.4)'}`,
+                  background: isToday ? 'rgba(20,184,166,0.1)' : 'rgba(15,23,42,0.4)',
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${isToday ? 'text-slate-900' : 'text-slate-300'}`}
+                    style={isToday ? { background: 'linear-gradient(135deg,#14b8a6,#0d9488)', boxShadow: '0 3px 10px rgba(20,184,166,0.5)' } : undefined}
+                  >
+                    {format(day, 'd')}
+                  </div>
+                  <div>
+                    <div className={`text-sm font-bold ${isToday ? 'text-primary-400' : 'text-slate-200'}`}>
+                      {format(day, 'EEEE')}
+                    </div>
+                    <div className="text-xs text-slate-500">{format(day, 'MMM d, yyyy')}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {dayTasks.length > 0 && (
+                    <span className="text-xs text-slate-400 font-medium">{completedDay}/{dayTasks.length}</span>
+                  )}
+                  <button
+                    id={`week-mobile-add-task-${format(day, 'yyyy-MM-dd')}`}
+                    onClick={() => { setSelectedDate(format(day, 'yyyy-MM-dd')); setEditingTask(null); setIsFormOpen(true); }}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-primary-400 transition-all duration-200"
+                    style={{ border: '1px solid rgba(20,184,166,0.3)', background: 'rgba(20,184,166,0.08)' }}
+                  >
+                    <PlusIcon className="w-3.5 h-3.5" /> Add
+                  </button>
+                </div>
+              </div>
+
+              {/* Tasks */}
+              {dayTasks.length === 0 ? (
+                <div className="px-4 py-4 text-center text-slate-600 text-xs font-medium">No tasks scheduled</div>
+              ) : (
+                <div className="p-3 space-y-2">
+                  {dayTasks.map(task => (
+                    <div
+                      key={task.id}
+                      className="flex items-center gap-3 p-3 rounded-xl transition-all duration-200"
+                      style={{
+                        background: task.is_completed ? 'rgba(34,197,94,0.08)' : 'rgba(20,184,166,0.06)',
+                        border: task.is_completed ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(20,184,166,0.15)',
+                      }}
+                    >
+                      <button
+                        onClick={() => task.is_completed ? handleUncomplete(task.id) : handleComplete(task.id)}
+                        className="flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-300"
+                        style={task.is_completed
+                          ? { background: 'linear-gradient(135deg,#22c55e,#16a34a)', borderColor: '#22c55e' }
+                          : { borderColor: '#14b8a6', background: 'transparent' }
+                        }
+                      >
+                        {task.is_completed && <CheckIcon className="w-3 h-3 text-white" strokeWidth={3} />}
+                      </button>
+                      <div className="flex-1 min-w-0" onClick={() => handleEdit(task)}>
+                        <div className={`text-sm font-semibold truncate ${task.is_completed ? 'line-through text-slate-500' : 'text-slate-100'}`}>
+                          {task.title}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-0.5">⏰ {task.scheduled_time}</div>
+                      </div>
+                      <button
+                        onClick={() => handleDelete(task.id)}
+                        className="flex-shrink-0 p-1.5 rounded-lg text-slate-500 transition-colors"
+                        style={{ background: 'rgba(239,68,68,0.08)' }}
+                      >
+                        <XMarkIcon className="w-4 h-4 text-red-400" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}

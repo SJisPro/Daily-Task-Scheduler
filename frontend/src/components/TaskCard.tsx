@@ -110,13 +110,13 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onComplete, onUncomplete, onE
             </div>
           </div>
 
-          {/* Action buttons — fade in on hover */}
-          <div className="flex gap-1 ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          {/* Action buttons — always visible on touch devices, hover-reveal on desktop */}
+          <div className="flex gap-1 ml-2 sm:ml-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200">
             {/* Bell – opens reminder panel */}
             <button
               id={`task-reminder-${task.id}`}
               onClick={() => setReminderOpen(true)}
-              className="p-2 rounded-xl text-slate-400 hover:text-primary-400 transition-all duration-200"
+              className="p-2 rounded-xl text-slate-400 hover:text-primary-400 active:text-primary-400 transition-all duration-200"
               style={{ background: 'rgba(255,255,255,0.04)' }}
               title="Manage reminders"
               onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'rgba(20,184,166,0.12)'}
@@ -127,7 +127,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onComplete, onUncomplete, onE
             <button
               id={`task-edit-${task.id}`}
               onClick={() => onEdit(task)}
-              className="p-2 rounded-xl text-slate-400 hover:text-primary-400 transition-all duration-200"
+              className="p-2 rounded-xl text-slate-400 hover:text-primary-400 active:text-primary-400 transition-all duration-200"
               style={{ background: 'rgba(255,255,255,0.04)' }}
               title="Edit task"
               onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'rgba(20,184,166,0.12)'}
@@ -138,7 +138,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onComplete, onUncomplete, onE
             <button
               id={`task-delete-${task.id}`}
               onClick={() => onDelete(task.id)}
-              className="p-2 rounded-xl text-slate-400 hover:text-red-400 transition-all duration-200"
+              className="p-2 rounded-xl text-slate-400 hover:text-red-400 active:text-red-400 transition-all duration-200"
               style={{ background: 'rgba(255,255,255,0.04)' }}
               title="Delete task"
               onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.12)'}

@@ -20,8 +20,8 @@ function AppContent() {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen pb-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+      <div className="min-h-screen pb-safe" style={{ paddingBottom: 'max(4rem, env(safe-area-inset-bottom))' }}>
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 sm:pt-6">
           <Navigation currentView={getCurrentView()} />
           <Routes>
             <Route path="/" element={<Navigate to="/day" replace />} />

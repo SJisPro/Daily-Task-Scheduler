@@ -15,20 +15,20 @@ const Navigation: React.FC<NavigationProps> = ({ currentView }) => {
   };
 
   return (
-    <nav className="glass rounded-2xl mb-8 px-6 py-4 shadow-card">
+    <nav className="glass rounded-2xl mb-6 sm:mb-8 px-4 sm:px-6 py-3 sm:py-4 shadow-card">
       <div className="flex justify-between items-center">
         {/* Brand */}
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: 'linear-gradient(135deg, #14b8a6, #0d9488)', boxShadow: '0 4px 14px rgba(20,184,166,0.45)' }}>
-            <span className="text-lg">📅</span>
+            <span className="text-base sm:text-lg">📅</span>
           </div>
           <div>
-            <h1 className="text-lg font-bold leading-none"
+            <h1 className="text-base sm:text-lg font-bold leading-none"
               style={{ background: 'linear-gradient(90deg, #2dd4bf, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
               Task Scheduler
             </h1>
-            <p className="text-[10px] text-slate-500 font-medium tracking-widest uppercase leading-tight mt-0.5">
+            <p className="hidden sm:block text-[10px] text-slate-500 font-medium tracking-widest uppercase leading-tight mt-0.5">
               Daily Planner
             </p>
           </div>
@@ -45,10 +45,11 @@ const Navigation: React.FC<NavigationProps> = ({ currentView }) => {
               key={view}
               id={`nav-${view}`}
               onClick={() => handleViewChange(view)}
-              className={`nav-btn ${currentView === view ? 'active' : ''}`}
+              className={`nav-btn ${currentView === view ? 'active' : ''} !px-3 sm:!px-4`}
+              title={label}
             >
               <Icon className="w-4 h-4" />
-              {label}
+              <span className="hidden sm:inline">{label}</span>
             </button>
           ))}
         </div>
