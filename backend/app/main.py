@@ -4,7 +4,6 @@ import os
 from .database import init_db
 from .routes import tasks
 from .routes import reminders
-from .reminder_service import start_reminder_service, stop_reminder_service
 
 app = FastAPI(title="Daily Task Scheduler API", version="2.0.0")
 
@@ -28,17 +27,16 @@ app.add_middleware(
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 app.include_router(tasks.router)
-app.include_router(reminders.router)
+app.include_router(reminders.router)  # kept for backward-compat; not called by new frontend
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 @app.on_event("startup")
 async def startup_event():
-    init_db()               # creates any missing tables (idempotent)
-    start_reminder_service()
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    stop_reminder_service()
+    # NOTE: The APScheduler reminder service has been removed.
+    # Reminders are now driven entirely by the frontend (useReminders.ts),
+    # which polls GET /api/tasks/?date=<today> every 60 seconds and fires
+    # browser notifications locally. No background thread is needed here.
+    init_db()   # create/verify DB tables (non-fatal if DB is unreachable)
 
 # ── Root / Health ─────────────────────────────────────────────────────────────
 @app.api_route("/", methods=["GET", "HEAD"])
