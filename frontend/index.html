@@ -21,22 +21,19 @@
 
   <link rel="icon" type="image/png" href="/icon-192.png" />
   <title>Daily Task Scheduler</title>
+
+  <!--
+      OneSignal Web Push SDK
+      Docs: https://documentation.onesignal.com/docs/web-push-quickstart
+      The SDK registers OneSignalSDKWorker.js (in /public/) as the service
+      worker automatically — no manual SW registration needed.
+    -->
+  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 </head>
 
 <body>
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
-
-  <!-- Register service worker for PWA installability -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
-          .then(reg => console.log('[SW] registered, scope:', reg.scope))
-          .catch(err => console.warn('[SW] registration failed:', err));
-      });
-    }
-  </script>
 </body>
 
 </html>
