@@ -43,6 +43,6 @@ async def startup_event():
 def root():
     return {"message": "Daily Task Scheduler API", "version": "2.0.0"}
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health_check():
     return {"status": "healthy"}
