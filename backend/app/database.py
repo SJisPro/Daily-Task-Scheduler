@@ -1,5 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.pool import NullPool
 import os
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -23,14 +24,13 @@ if DATABASE_URL.startswith("sqlite"):
 else:
     engine = create_engine(
         DATABASE_URL,
-        # Fail fast if DB is unreachable (don't hang for 30 s at startup)
+        # NullPool: no client-side connection pool.
+        # Supabase already runs PgBouncer — pooling at the SQLAlchemy level
+        # on top of PgBouncer exhausts connections and causes TimeoutErrors.
+        # With NullPool each request borrows a connection from PgBouncer and
+        # returns it immediately, which is fast and never runs out.
+        poolclass=NullPool,
         connect_args={"connect_timeout": 10},
-        # Pool settings tuned for Supabase PgBouncer (session mode)
-        pool_pre_ping=True,       # drop stale connections before use
-        pool_size=2,              # free tier: keep the pool small
-        max_overflow=3,
-        pool_recycle=300,         # recycle connections every 5 min
-        pool_timeout=20,          # give up waiting for a pool slot after 20 s
     )
 
 SessionLocal = sessionmaker(
