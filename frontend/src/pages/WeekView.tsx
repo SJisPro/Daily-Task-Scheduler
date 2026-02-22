@@ -1,29 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { format, startOfWeek, addDays, isSameDay } from 'date-fns';
-import { Task, TaskCreate } from '../types';
+import { useNavigate } from 'react-router-dom';
+import { Task } from '../types';
 import { taskApi } from '../services/api';
-import TaskForm from '../components/TaskForm';
 import ConfirmDialog from '../components/ConfirmDialog';
 import RollbackBanner from '../components/RollbackBanner';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
-  PlusIcon,
   DocumentDuplicateIcon,
   TrashIcon,
   CheckIcon,
   XMarkIcon,
+  ArrowRightIcon,
 } from '@heroicons/react/24/outline';
 
 const WeekView: React.FC = () => {
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [weekStart, setWeekStart] = useState<Date>(() => {
     try { return startOfWeek(new Date(), { weekStartsOn: 1 }); }
     catch { return new Date(); }
   });
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>('');
   const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
   const [duplicateSourceDate, setDuplicateSourceDate] = useState<string>('');
   const [duplicateType, setDuplicateType] = useState<'week' | 'month' | null>(null);
@@ -48,17 +46,6 @@ const WeekView: React.FC = () => {
     } finally { setLoading(false); }
   };
 
-  const handleCreateTask = async (taskData: TaskCreate) => {
-    try { await taskApi.create(taskData); loadWeekTasks(); }
-    catch (error) { console.error(error); }
-  };
-
-  const handleUpdateTask = async (taskData: TaskCreate) => {
-    if (!editingTask) return;
-    try { await taskApi.update(editingTask.id, taskData); loadWeekTasks(); setEditingTask(null); }
-    catch (error) { console.error(error); }
-  };
-
   const handleComplete = async (id: number) => {
     try { await taskApi.complete(id); loadWeekTasks(); }
     catch (error) { console.error(error); }
@@ -69,14 +56,14 @@ const WeekView: React.FC = () => {
     catch (error) { console.error(error); }
   };
 
-  const handleEdit = (task: Task) => { setEditingTask(task); setIsFormOpen(true); };
-
   const handleDelete = async (id: number) => {
     if (window.confirm('Delete this task?')) {
       try { await taskApi.delete(id); loadWeekTasks(); }
       catch (error) { console.error(error); }
     }
   };
+
+  const goToDay = (date: Date) => navigate(`/day?date=${format(date, 'yyyy-MM-dd')}`);
 
   const getTasksForDay = (date: Date) => tasks.filter(t => t.scheduled_date === format(date, 'yyyy-MM-dd'));
   const navigateWeek = (dir: 'prev' | 'next') => setWeekStart(addDays(weekStart, dir === 'next' ? 7 : -7));
@@ -196,7 +183,7 @@ const WeekView: React.FC = () => {
               {format(weekStart, 'MMM d')} – {format(addDays(weekStart, 6), 'MMM d, yyyy')}
             </h2>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
-              {tasks.length} task{tasks.length !== 1 ? 's' : ''} this week
+              {tasks.length} task{tasks.length !== 1 ? 's' : ''} this week · click a day to manage
             </p>
           </div>
 
@@ -226,7 +213,7 @@ const WeekView: React.FC = () => {
         </div>
       </div>
 
-      {/* Week grid — 7 cols on desktop, stacked on mobile */}
+      {/* Week grid — 7 cols on desktop */}
       <div className="hidden sm:grid grid-cols-7 gap-3">
         {weekDays.map((day, index) => {
           const dayTasks = getTasksForDay(day);
@@ -237,23 +224,20 @@ const WeekView: React.FC = () => {
           return (
             <div
               key={index}
-              className="rounded-2xl overflow-hidden flex flex-col transition-all duration-200"
+              className="rounded-2xl overflow-hidden flex flex-col transition-all duration-200 cursor-pointer group/col"
               style={{
-                background: isToday
-                  ? 'rgba(20,184,166,0.08)'
-                  : 'rgba(20,30,50,0.6)',
+                background: isToday ? 'rgba(20,184,166,0.08)' : 'rgba(20,30,50,0.6)',
                 backdropFilter: 'blur(12px)',
-                border: isToday
-                  ? '1px solid rgba(20,184,166,0.4)'
-                  : '1px solid rgba(51,65,85,0.4)',
+                border: isToday ? '1px solid rgba(20,184,166,0.4)' : '1px solid rgba(51,65,85,0.4)',
                 boxShadow: isToday ? '0 0 20px rgba(20,184,166,0.1)' : undefined,
                 opacity: isPast ? 0.7 : 1,
                 minHeight: '320px',
               }}
+              onClick={() => goToDay(day)}
             >
-              {/* Day header */}
+              {/* Day header — clicking navigates, shows arrow hint on hover */}
               <div
-                className="p-3 text-center"
+                className="p-3 text-center relative"
                 style={{
                   borderBottom: `1px solid ${isToday ? 'rgba(20,184,166,0.25)' : 'rgba(51,65,85,0.4)'}`,
                   background: isToday ? 'rgba(20,184,166,0.1)' : 'rgba(15,23,42,0.4)',
@@ -273,9 +257,13 @@ const WeekView: React.FC = () => {
                     {completedDay}/{dayTasks.length}
                   </div>
                 )}
+                {/* Hover arrow hint */}
+                <div className="absolute top-2 right-2 opacity-0 group-hover/col:opacity-100 transition-opacity">
+                  <ArrowRightIcon className="w-3 h-3 text-primary-400" />
+                </div>
               </div>
 
-              {/* Tasks */}
+              {/* Tasks (read-only preview) */}
               <div className="flex-1 p-2 space-y-1.5 overflow-y-auto">
                 {dayTasks.length === 0 ? (
                   <div className="text-center text-slate-600 text-[11px] py-6 font-medium">
@@ -285,16 +273,11 @@ const WeekView: React.FC = () => {
                   dayTasks.map(task => (
                     <div
                       key={task.id}
-                      className="p-2 rounded-xl text-xs cursor-pointer transition-all duration-200 group/task"
+                      className="p-2 rounded-xl text-xs transition-all duration-200 group/task"
                       style={{
-                        background: task.is_completed
-                          ? 'rgba(34,197,94,0.08)'
-                          : 'rgba(20,184,166,0.06)',
-                        border: task.is_completed
-                          ? '1px solid rgba(34,197,94,0.25)'
-                          : '1px solid rgba(20,184,166,0.2)',
+                        background: task.is_completed ? 'rgba(34,197,94,0.08)' : 'rgba(20,184,166,0.06)',
+                        border: task.is_completed ? '1px solid rgba(34,197,94,0.25)' : '1px solid rgba(20,184,166,0.2)',
                       }}
-                      onClick={() => handleEdit(task)}
                     >
                       <div
                         className={`font-semibold leading-snug ${task.is_completed ? 'line-through text-slate-500' : 'text-slate-200'}`}
@@ -304,6 +287,7 @@ const WeekView: React.FC = () => {
                       </div>
                       <div className="text-slate-600 mt-0.5 text-[10px]">⏰ {task.scheduled_time}</div>
 
+                      {/* Quick complete / delete — stop propagation so col click doesn't fire */}
                       <div className="flex gap-1 mt-1.5 opacity-0 group-hover/task:opacity-100 transition-opacity">
                         <button
                           onClick={e => { e.stopPropagation(); task.is_completed ? handleUncomplete(task.id) : handleComplete(task.id); }}
@@ -328,18 +312,20 @@ const WeekView: React.FC = () => {
                 )}
               </div>
 
-              {/* Day footer */}
+              {/* Day footer — duplicate buttons + open day */}
               <div className="p-2 space-y-1.5" style={{ borderTop: '1px solid rgba(51,65,85,0.3)' }}>
+                {/* Open Day button */}
                 <button
-                  id={`week-add-task-${format(day, 'yyyy-MM-dd')}`}
-                  onClick={() => { setSelectedDate(format(day, 'yyyy-MM-dd')); setEditingTask(null); setIsFormOpen(true); }}
-                  className="w-full py-2 rounded-xl text-[11px] font-semibold text-primary-400 transition-all duration-200"
-                  style={{ border: '1px dashed rgba(20,184,166,0.3)', background: 'transparent' }}
-                  onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'rgba(20,184,166,0.06)'}
-                  onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'transparent'}
+                  id={`week-open-day-${format(day, 'yyyy-MM-dd')}`}
+                  onClick={e => { e.stopPropagation(); goToDay(day); }}
+                  className="w-full py-2 rounded-xl text-[11px] font-semibold text-primary-400 flex items-center justify-center gap-1 transition-all duration-200"
+                  style={{ border: '1px solid rgba(20,184,166,0.3)', background: 'rgba(20,184,166,0.06)' }}
+                  onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'rgba(20,184,166,0.12)'}
+                  onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'rgba(20,184,166,0.06)'}
                 >
-                  <PlusIcon className="w-3 h-3 inline mr-1" />Add
+                  <ArrowRightIcon className="w-3 h-3" />Open Day
                 </button>
+                {/* Copy shortcuts */}
                 {dayTasks.length > 0 && (
                   <div className="flex gap-1">
                     <button
@@ -386,13 +372,15 @@ const WeekView: React.FC = () => {
                 opacity: isPast ? 0.75 : 1,
               }}
             >
-              {/* Day header row */}
-              <div
-                className="px-4 py-3 flex items-center justify-between"
+              {/* Day header — full row tappable to open day view */}
+              <button
+                id={`week-mobile-open-day-${format(day, 'yyyy-MM-dd')}`}
+                className="w-full px-4 py-3 flex items-center justify-between text-left"
                 style={{
                   borderBottom: `1px solid ${isToday ? 'rgba(20,184,166,0.25)' : 'rgba(51,65,85,0.4)'}`,
                   background: isToday ? 'rgba(20,184,166,0.1)' : 'rgba(15,23,42,0.4)',
                 }}
+                onClick={() => goToDay(day)}
               >
                 <div className="flex items-center gap-3">
                   <div
@@ -412,20 +400,13 @@ const WeekView: React.FC = () => {
                   {dayTasks.length > 0 && (
                     <span className="text-xs text-slate-400 font-medium">{completedDay}/{dayTasks.length}</span>
                   )}
-                  <button
-                    id={`week-mobile-add-task-${format(day, 'yyyy-MM-dd')}`}
-                    onClick={() => { setSelectedDate(format(day, 'yyyy-MM-dd')); setEditingTask(null); setIsFormOpen(true); }}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-primary-400 transition-all duration-200"
-                    style={{ border: '1px solid rgba(20,184,166,0.3)', background: 'rgba(20,184,166,0.08)' }}
-                  >
-                    <PlusIcon className="w-3.5 h-3.5" /> Add
-                  </button>
+                  <ArrowRightIcon className="w-4 h-4 text-slate-500" />
                 </div>
-              </div>
+              </button>
 
-              {/* Tasks */}
+              {/* Task preview (tap-through to day, quick complete/delete) */}
               {dayTasks.length === 0 ? (
-                <div className="px-4 py-4 text-center text-slate-600 text-xs font-medium">No tasks scheduled</div>
+                <div className="px-4 py-3 text-center text-slate-600 text-xs font-medium">No tasks — tap to add</div>
               ) : (
                 <div className="p-3 space-y-2">
                   {dayTasks.map(task => (
@@ -447,7 +428,8 @@ const WeekView: React.FC = () => {
                       >
                         {task.is_completed && <CheckIcon className="w-3 h-3 text-white" strokeWidth={3} />}
                       </button>
-                      <div className="flex-1 min-w-0" onClick={() => handleEdit(task)}>
+                      {/* tapping text area opens day view */}
+                      <div className="flex-1 min-w-0" onClick={() => goToDay(day)}>
                         <div className={`text-sm font-semibold truncate ${task.is_completed ? 'line-through text-slate-500' : 'text-slate-100'}`}>
                           {task.title}
                         </div>
@@ -469,20 +451,11 @@ const WeekView: React.FC = () => {
         })}
       </div>
 
-      {/* Modals */}
-      <TaskForm
-        task={editingTask}
-        isOpen={isFormOpen}
-        onClose={() => { setIsFormOpen(false); setEditingTask(null); setSelectedDate(''); }}
-        onSubmit={editingTask ? handleUpdateTask : handleCreateTask}
-        initialDate={selectedDate}
-      />
-
       {showDuplicateDialog && duplicateSourceDate && duplicateType && (
         <ConfirmDialog
           isOpen={showDuplicateDialog}
           title={`Duplicate to ${duplicateType === 'week' ? 'Week' : 'Month'}`}
-          message={`Copy all tasks from ${format(new Date(duplicateSourceDate), 'MMMM d, yyyy')} to the next ${duplicateType === 'week' ? '6 days' : '30 days'}?`}
+          message={`Copy all tasks from ${format(new Date(duplicateSourceDate + 'T12:00:00'), 'MMMM d, yyyy')} to the next ${duplicateType === 'week' ? '6 days' : '30 days'}?`}
           confirmText={duplicating ? 'Duplicating…' : 'Duplicate'}
           cancelText="Cancel"
           onConfirm={handleDuplicateConfirm}

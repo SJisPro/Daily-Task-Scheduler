@@ -3,22 +3,19 @@ import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
   isSameMonth, isSameDay, addMonths, subMonths, getDay,
 } from 'date-fns';
-import { Task, TaskCreate } from '../types';
+import { useNavigate } from 'react-router-dom';
+import { Task } from '../types';
 import { taskApi } from '../services/api';
-import TaskForm from '../components/TaskForm';
 import ConfirmDialog from '../components/ConfirmDialog';
 import RollbackBanner from '../components/RollbackBanner';
 import {
-  ChevronLeftIcon, ChevronRightIcon, TrashIcon,
-  PlusIcon, DocumentDuplicateIcon,
+  ChevronLeftIcon, ChevronRightIcon, TrashIcon, DocumentDuplicateIcon,
 } from '@heroicons/react/24/outline';
 
 const MonthView: React.FC = () => {
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>('');
   const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
   const [duplicateSourceDate, setDuplicateSourceDate] = useState<string>('');
   const [duplicateType, setDuplicateType] = useState<'week' | 'month' | null>(null);
@@ -44,26 +41,16 @@ const MonthView: React.FC = () => {
     } finally { setLoading(false); }
   };
 
-  const handleCreateTask = async (taskData: TaskCreate) => {
-    try { await taskApi.create(taskData); loadMonthTasks(); }
-    catch (e) { console.error(e); }
-  };
-
-  const handleUpdateTask = async (taskData: TaskCreate) => {
-    if (!editingTask) return;
-    try { await taskApi.update(editingTask.id, taskData); loadMonthTasks(); setEditingTask(null); }
-    catch (e) { console.error(e); }
-  };
-
-  const handleEdit = (task: Task) => { setEditingTask(task); setIsFormOpen(true); };
-
   const getTasksForDate = (date: Date) =>
     tasks.filter(t => t.scheduled_date === format(date, 'yyyy-MM-dd'));
 
   const navigateMonth = (dir: 'prev' | 'next') =>
     setCurrentMonth(dir === 'next' ? addMonths(currentMonth, 1) : subMonths(currentMonth, 1));
 
-  const handleDuplicateClick = (date: Date, type: 'week' | 'month') => {
+  const goToDay = (date: Date) => navigate(`/day?date=${format(date, 'yyyy-MM-dd')}`);
+
+  const handleDuplicateClick = (e: React.MouseEvent, date: Date, type: 'week' | 'month') => {
+    e.stopPropagation();
     if (getTasksForDate(date).length === 0) {
       alert(`No tasks for ${format(date, 'MMMM d, yyyy')}!`); return;
     }
@@ -184,7 +171,7 @@ const MonthView: React.FC = () => {
               {format(currentMonth, 'MMMM yyyy')}
             </h2>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
-              {tasks.length} task{tasks.length !== 1 ? 's' : ''} this month
+              {tasks.length} task{tasks.length !== 1 ? 's' : ''} this month · tap a day to manage
             </p>
           </div>
 
@@ -252,30 +239,26 @@ const MonthView: React.FC = () => {
             const completedCount = dayTasks.filter(t => t.is_completed).length;
             const colIndex = (adjustedFirstDay + di) % 7;
             const isLastCol = colIndex === 6;
+            const isCurrentMonth = isSameMonth(day, currentMonth);
 
             return (
               <div
                 key={`day-${day.getTime()}-${di}`}
-                className="relative transition-all duration-200 cursor-pointer"
+                className="relative transition-all duration-200"
                 style={{
                   minHeight: 'clamp(60px, 10vw, 100px)',
                   borderRight: !isLastCol ? '1px solid rgba(51,65,85,0.2)' : undefined,
                   borderBottom: '1px solid rgba(51,65,85,0.2)',
                   background: isToday
                     ? 'rgba(20,184,166,0.07)'
-                    : isHovered
+                    : isHovered && isCurrentMonth
                       ? 'rgba(51,65,85,0.25)'
                       : 'transparent',
+                  cursor: isCurrentMonth ? 'pointer' : 'default',
                 }}
-                onMouseEnter={() => setHoveredDay(dateStr)}
+                onMouseEnter={() => isCurrentMonth && setHoveredDay(dateStr)}
                 onMouseLeave={() => setHoveredDay(null)}
-                onClick={() => {
-                  if (isSameMonth(day, currentMonth)) {
-                    setSelectedDate(dateStr);
-                    setEditingTask(null);
-                    setIsFormOpen(true);
-                  }
-                }}
+                onClick={() => isCurrentMonth && goToDay(day)}
               >
                 {/* Day number */}
                 <div className="p-1 sm:p-2">
@@ -283,14 +266,14 @@ const MonthView: React.FC = () => {
                     className="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold mb-1"
                     style={isToday
                       ? { background: 'linear-gradient(135deg,#14b8a6,#0d9488)', color: '#fff', boxShadow: '0 3px 10px rgba(20,184,166,0.5)' }
-                      : { color: isSameMonth(day, currentMonth) ? '#cbd5e1' : '#334155' }
+                      : { color: isCurrentMonth ? '#cbd5e1' : '#334155' }
                     }
                   >
                     {format(day, 'd')}
                   </div>
 
-                  {/* Task count pill */}
-                  {dayTasks.length > 0 && isSameMonth(day, currentMonth) && (
+                  {/* Progress bar */}
+                  {dayTasks.length > 0 && isCurrentMonth && (
                     <div className="flex items-center gap-1 mb-1">
                       <div className="flex-1 h-1 sm:h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(51,65,85,0.5)' }}>
                         <div
@@ -307,12 +290,11 @@ const MonthView: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Task chips — desktop only */}
+                  {/* Task chips — desktop: click navigates to that day */}
                   <div className="hidden sm:block">
                     {dayTasks.slice(0, 2).map(task => (
                       <div
                         key={task.id}
-                        onClick={e => { e.stopPropagation(); handleEdit(task); }}
                         className="truncate rounded px-1.5 py-0.5 mb-0.5 text-[10px] font-medium transition-all duration-150"
                         style={{
                           background: task.is_completed ? 'rgba(34,197,94,0.12)' : 'rgba(20,184,166,0.1)',
@@ -330,8 +312,8 @@ const MonthView: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Mobile: show task count badge instead */}
-                  {dayTasks.length > 0 && isSameMonth(day, currentMonth) && (
+                  {/* Mobile: task count badge */}
+                  {dayTasks.length > 0 && isCurrentMonth && (
                     <div className="sm:hidden flex justify-center mt-0.5">
                       <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
                         style={{ background: 'rgba(20,184,166,0.15)', color: '#2dd4bf' }}
@@ -341,30 +323,24 @@ const MonthView: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Action buttons on hover — desktop only */}
-                  {isHovered && isSameMonth(day, currentMonth) && (
+                  {/* Hover actions — desktop: duplicate shortcuts (no add task) */}
+                  {isHovered && isCurrentMonth && (
                     <div className="hidden sm:block mt-1.5 space-y-1 animate-fade-in" onClick={e => e.stopPropagation()}>
-                      <button
-                        id={`month-add-task-${dateStr}`}
-                        onClick={e => { e.stopPropagation(); setSelectedDate(dateStr); setEditingTask(null); setIsFormOpen(true); }}
-                        className="w-full py-1 rounded-lg text-[10px] font-semibold text-primary-400 flex items-center justify-center gap-0.5 transition-colors"
-                        style={{ background: 'rgba(20,184,166,0.1)', border: '1px solid rgba(20,184,166,0.2)' }}
-                      >
-                        <PlusIcon className="w-3 h-3" />Add
-                      </button>
                       {dayTasks.length > 0 && (
                         <div className="flex gap-1">
                           <button
-                            onClick={e => { e.stopPropagation(); handleDuplicateClick(day, 'week'); }}
+                            onClick={e => handleDuplicateClick(e, day, 'week')}
                             className="flex-1 py-1 rounded-lg text-[9px] font-semibold transition-colors"
                             style={{ background: 'rgba(20,184,166,0.08)', color: '#2dd4bf', border: '1px solid rgba(20,184,166,0.2)' }}
+                            title="Copy tasks to next 6 days"
                           >
                             <DocumentDuplicateIcon className="w-2.5 h-2.5 inline mr-0.5" />Wk
                           </button>
                           <button
-                            onClick={e => { e.stopPropagation(); handleDuplicateClick(day, 'month'); }}
+                            onClick={e => handleDuplicateClick(e, day, 'month')}
                             className="flex-1 py-1 rounded-lg text-[9px] font-semibold transition-colors"
                             style={{ background: 'rgba(168,85,247,0.08)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.2)' }}
+                            title="Copy tasks to next 30 days"
                           >
                             <DocumentDuplicateIcon className="w-2.5 h-2.5 inline mr-0.5" />Mo
                           </button>
@@ -379,20 +355,11 @@ const MonthView: React.FC = () => {
         </div>
       </div>
 
-      {/* Modals */}
-      <TaskForm
-        task={editingTask}
-        isOpen={isFormOpen}
-        onClose={() => { setIsFormOpen(false); setEditingTask(null); setSelectedDate(''); }}
-        onSubmit={editingTask ? handleUpdateTask : handleCreateTask}
-        initialDate={selectedDate}
-      />
-
       {showDuplicateDialog && duplicateSourceDate && duplicateType && (
         <ConfirmDialog
           isOpen={showDuplicateDialog}
           title={`Duplicate to ${duplicateType === 'week' ? 'Week' : 'Month'}`}
-          message={`Copy all tasks from ${format(new Date(duplicateSourceDate), 'MMMM d, yyyy')} to the next ${duplicateType === 'week' ? '6 days' : '30 days'}?`}
+          message={`Copy all tasks from ${format(new Date(duplicateSourceDate + 'T12:00:00'), 'MMMM d, yyyy')} to the next ${duplicateType === 'week' ? '6 days' : '30 days'}?`}
           confirmText={duplicating ? 'Duplicating…' : 'Duplicate'}
           cancelText="Cancel"
           onConfirm={handleDuplicateConfirm}

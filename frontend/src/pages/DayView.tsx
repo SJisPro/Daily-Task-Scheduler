@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
+import { useSearchParams } from 'react-router-dom';
 import { Task, TaskCreate, CopyTargetType } from '../types';
 import { taskApi } from '../services/api';
 import TaskCard from '../components/TaskCard';
@@ -18,10 +19,17 @@ import {
 } from '@heroicons/react/24/outline';
 
 const DayView: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>(
-    format(new Date(), 'yyyy-MM-dd')
+    searchParams.get('date') || format(new Date(), 'yyyy-MM-dd')
   );
+
+  // When navigating here from week/month view with a ?date= param, update selection
+  useEffect(() => {
+    const dateParam = searchParams.get('date');
+    if (dateParam) setSelectedDate(dateParam);
+  }, [searchParams]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(false);
