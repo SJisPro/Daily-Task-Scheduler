@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 from .routes import tasks
 from .routes import reminders
+from .routes import roadmaps
 from .push_service import start_push_service, stop_push_service
 
 app = FastAPI(title="Daily Task Scheduler API", version="2.0.0")
@@ -28,6 +29,7 @@ app.add_middleware(
 # ── Routers ───────────────────────────────────────────────────────────────────
 app.include_router(tasks.router)
 app.include_router(reminders.router)
+app.include_router(roadmaps.router)
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 @app.on_event("startup")

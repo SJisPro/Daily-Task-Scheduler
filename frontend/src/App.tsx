@@ -4,6 +4,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import DayView from './pages/DayView';
 import WeekView from './pages/WeekView';
 import MonthView from './pages/MonthView';
+import RoadmapView from './pages/RoadmapView';
 import { useReminders } from './hooks/useReminders';
 
 function AppContent() {
@@ -15,6 +16,7 @@ function AppContent() {
   const getCurrentView = () => {
     if (location.pathname === '/week') return 'week';
     if (location.pathname === '/month') return 'month';
+    if (location.pathname === '/roadmap') return 'roadmap';
     return 'day';
   };
 
@@ -28,6 +30,7 @@ function AppContent() {
             <Route path="/day" element={<DayView />} />
             <Route path="/week" element={<WeekView />} />
             <Route path="/month" element={<MonthView />} />
+            <Route path="/roadmap" element={<RoadmapView />} />
           </Routes>
         </div>
       </div>

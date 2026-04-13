@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ViewMode } from '../types';
-import { CalendarDaysIcon, CalendarIcon, SunIcon } from '@heroicons/react/24/outline';
+import { CalendarDaysIcon, CalendarIcon, SunIcon, MapIcon } from '@heroicons/react/24/outline';
 
 interface NavigationProps {
   currentView: ViewMode;
@@ -40,6 +40,7 @@ const Navigation: React.FC<NavigationProps> = ({ currentView }) => {
             { view: 'day' as ViewMode, label: 'Day', Icon: SunIcon },
             { view: 'week' as ViewMode, label: 'Week', Icon: CalendarDaysIcon },
             { view: 'month' as ViewMode, label: 'Month', Icon: CalendarIcon },
+            { view: 'roadmap' as ViewMode, label: 'Roadmap', Icon: MapIcon },
           ] as const).map(({ view, label, Icon }) => (
             <button
               key={view}

@@ -1,6 +1,6 @@
 from sqlalchemy import (
     Column, Integer, String, DateTime, Boolean,
-    ForeignKey, Index, SmallInteger
+    ForeignKey, Index, SmallInteger, Text
 )
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -105,3 +105,71 @@ class TaskReminder(Base):
             "next_fire_at",
         ),
     )
+
+
+# ─── Roadmap models ────────────────────────────────────────────────────────────
+
+class Roadmap(Base):
+    """
+    Top-level roadmap entity.
+
+    period_type: "week" | "month"
+        Determines the granularity of each slot inside the roadmap.
+    total_periods: number of weeks or months in this roadmap.
+    """
+    __tablename__ = "roadmaps"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    period_type = Column(String, nullable=False, default="month")  # "week" | "month"
+    total_periods = Column(Integer, nullable=False, default=4)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    periods = relationship(
+        "RoadmapPeriod",
+        back_populates="roadmap",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+
+
+class RoadmapPeriod(Base):
+    """
+    A single slot (week N / month N) inside a roadmap.
+    period_index is 0-based.
+    """
+    __tablename__ = "roadmap_periods"
+
+    id = Column(Integer, primary_key=True, index=True)
+    roadmap_id = Column(Integer, ForeignKey("roadmaps.id", ondelete="CASCADE"), nullable=False)
+    period_index = Column(Integer, nullable=False)   # 0-based slot number
+    label = Column(String, nullable=True)            # e.g. "Month 1: Foundations"
+    topics = Column(Text, nullable=True)             # Free-form markdown / plain text
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    roadmap = relationship("Roadmap", back_populates="periods")
+    resources = relationship(
+        "PeriodResource",
+        back_populates="period",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+
+
+class PeriodResource(Base):
+    """
+    A URL/link resource attached to a RoadmapPeriod.
+    """
+    __tablename__ = "period_resources"
+
+    id = Column(Integer, primary_key=True, index=True)
+    period_id = Column(Integer, ForeignKey("roadmap_periods.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String, nullable=False)
+    url = Column(String, nullable=False)
+    sort_order = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    period = relationship("RoadmapPeriod", back_populates="resources")
