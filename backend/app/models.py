@@ -126,6 +126,8 @@ class Roadmap(Base):
     total_periods = Column(Integer, nullable=False, default=4)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    started_at = Column(DateTime, nullable=True)     # set when user clicks "Start"
+    completed_at = Column(DateTime, nullable=True)   # set when all periods are complete
 
     periods = relationship(
         "RoadmapPeriod",
@@ -149,6 +151,12 @@ class RoadmapPeriod(Base):
     topics = Column(Text, nullable=True)             # Free-form markdown / plain text
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Per-task completion tracking (JSON bool array aligned with topics lines)
+    tasks_status = Column(Text, nullable=True)       # e.g. '[true, false, true]'
+    is_complete = Column(Boolean, default=False)     # True when all tasks checked
+    completed_at = Column(DateTime, nullable=True)   # when this period was marked done
+    revision_notes = Column(Text, nullable=True)     # auto-generated on completion
+    notes_file_path = Column(Text, nullable=True)    # path to AI-generated .md notes file
 
     roadmap = relationship("Roadmap", back_populates="periods")
     resources = relationship(

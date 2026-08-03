@@ -3,6 +3,7 @@ import { Task } from '../types';
 import {
   CheckIcon, PencilSquareIcon, TrashIcon,
   ClockIcon, CalendarDaysIcon, ExclamationCircleIcon,
+  DocumentDuplicateIcon,
 } from '@heroicons/react/24/outline';
 
 interface TaskCardProps {
@@ -11,9 +12,10 @@ interface TaskCardProps {
   onUncomplete: (id: number) => void;
   onEdit: (task: Task) => void;
   onDelete: (id: number) => void;
+  onCopySingle?: (task: Task) => void;
 }
 
-const TaskCard: React.FC<TaskCardProps> = ({ task, onComplete, onUncomplete, onEdit, onDelete }) => {
+const TaskCard: React.FC<TaskCardProps> = ({ task, onComplete, onUncomplete, onEdit, onDelete, onCopySingle }) => {
 
   const isOverdue = !task.is_completed &&
     new Date(`${task.scheduled_date}T${task.scheduled_time}`) < new Date();
@@ -109,6 +111,19 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onComplete, onUncomplete, onE
 
         {/* Action buttons — always visible on touch devices, hover-reveal on desktop */}
         <div className="flex gap-1 ml-2 sm:ml-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200">
+          {onCopySingle && (
+            <button
+              id={`task-copy-${task.id}`}
+              onClick={() => onCopySingle(task)}
+              className="p-2 rounded-xl text-slate-400 hover:text-primary-400 active:text-primary-400 transition-all duration-200"
+              style={{ background: 'rgba(255,255,255,0.04)' }}
+              title="Copy task to week/month"
+              onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = 'rgba(20,184,166,0.12)'}
+              onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.04)'}
+            >
+              <DocumentDuplicateIcon className="w-[18px] h-[18px]" />
+            </button>
+          )}
           <button
             id={`task-edit-${task.id}`}
             onClick={() => onEdit(task)}

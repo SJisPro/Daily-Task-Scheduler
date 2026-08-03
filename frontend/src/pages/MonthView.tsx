@@ -4,21 +4,25 @@ import {
   isSameMonth, isSameDay, addMonths, subMonths, getDay,
 } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
-import { Task } from '../types';
+import { Task, CopyTargetType, WeekCopyType, MonthCopyType } from '../types';
 import { taskApi } from '../services/api';
 import ConfirmDialog from '../components/ConfirmDialog';
 import RollbackBanner from '../components/RollbackBanner';
+import WeekCopyDialog from '../components/WeekCopyDialog';
+import MonthCopyDialog from '../components/MonthCopyDialog';
 import {
   ChevronLeftIcon, ChevronRightIcon, TrashIcon, DocumentDuplicateIcon,
 } from '@heroicons/react/24/outline';
+import InlineAnalyticsPanel from '../components/InlineAnalyticsPanel';
 
 const MonthView: React.FC = () => {
   const navigate = useNavigate();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
-  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+  const [showWeekCopyDialog, setShowWeekCopyDialog] = useState(false);
+  const [showMonthCopyDialog, setShowMonthCopyDialog] = useState(false);
   const [duplicateSourceDate, setDuplicateSourceDate] = useState<string>('');
-  const [duplicateType, setDuplicateType] = useState<'week' | 'month' | null>(null);
+  const [duplicateType, setDuplicateType] = useState<CopyTargetType | null>(null);
   const [duplicating, setDuplicating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,27 +53,35 @@ const MonthView: React.FC = () => {
 
   const goToDay = (date: Date) => navigate(`/day?date=${format(date, 'yyyy-MM-dd')}`);
 
-  const handleDuplicateClick = (e: React.MouseEvent, date: Date, type: 'week' | 'month') => {
+  const handleWeekCopyClick = (e: React.MouseEvent, date: Date) => {
     e.stopPropagation();
-    if (getTasksForDate(date).length === 0) {
-      alert(`No tasks for ${format(date, 'MMMM d, yyyy')}!`); return;
-    }
+    if (getTasksForDate(date).length === 0) { alert(`No tasks for ${format(date, 'MMMM d, yyyy')}!`); return; }
     setDuplicateSourceDate(format(date, 'yyyy-MM-dd'));
-    setDuplicateType(type);
-    setShowDuplicateDialog(true);
+    setShowWeekCopyDialog(true);
   };
 
-  const handleDuplicateConfirm = async () => {
-    if (!duplicateType || !duplicateSourceDate) return;
+  const handleMonthCopyClick = (e: React.MouseEvent, date: Date) => {
+    e.stopPropagation();
+    if (getTasksForDate(date).length === 0) { alert(`No tasks for ${format(date, 'MMMM d, yyyy')}!`); return; }
+    setDuplicateSourceDate(format(date, 'yyyy-MM-dd'));
+    setShowMonthCopyDialog(true);
+  };
+
+  const runDuplicate = async (type: CopyTargetType) => {
+    if (!duplicateSourceDate) return;
     setDuplicating(true);
     try {
-      const response = await taskApi.duplicateTasks(duplicateSourceDate, duplicateType);
+      const response = await taskApi.duplicateTasks(duplicateSourceDate, type);
       setDuplicatedTaskIds(response.data.map(t => t.id));
-      setShowDuplicateDialog(false);
-      setDuplicateType(null);
+      setDuplicateType(type);
+      setShowWeekCopyDialog(false);
+      setShowMonthCopyDialog(false);
       setDuplicateSourceDate('');
       setShowRollbackBanner(true);
       loadMonthTasks();
+      if (response.data.length === 0) {
+        alert('No tasks were copied — all target days already have these tasks, or there are no valid future dates.');
+      }
     } catch (e: any) {
       alert(e.response?.data?.detail || 'Failed to duplicate tasks.');
     } finally { setDuplicating(false); }
@@ -141,16 +153,16 @@ const MonthView: React.FC = () => {
     );
   }
 
+  const sourceDateLabel = duplicateSourceDate
+    ? format(new Date(duplicateSourceDate + 'T12:00:00'), 'EEE, MMM d')
+    : '';
+
   return (
     <div className="max-w-7xl mx-auto px-0 sm:px-4 py-2 space-y-4 sm:space-y-6 animate-fade-in">
       {/* Month header */}
       <div
         className="rounded-2xl overflow-hidden"
-        style={{
-          background: 'rgba(20,30,50,0.8)',
-          backdropFilter: 'blur(16px)',
-          border: '1px solid rgba(51,65,85,0.5)',
-        }}
+        style={{ background: 'rgba(20,30,50,0.8)', backdropFilter: 'blur(16px)', border: '1px solid rgba(51,65,85,0.5)' }}
       >
         <div className="h-1" style={{ background: 'linear-gradient(90deg, #14b8a6, #a855f7)' }} />
         <div className="p-3 sm:p-5 flex items-center justify-between gap-2">
@@ -204,13 +216,8 @@ const MonthView: React.FC = () => {
       {/* Calendar */}
       <div
         className="rounded-2xl overflow-hidden"
-        style={{
-          background: 'rgba(20,30,50,0.7)',
-          backdropFilter: 'blur(16px)',
-          border: '1px solid rgba(51,65,85,0.4)',
-        }}
+        style={{ background: 'rgba(20,30,50,0.7)', backdropFilter: 'blur(16px)', border: '1px solid rgba(51,65,85,0.4)' }}
       >
-        {/* Weekday headers */}
         <div className="grid grid-cols-7" style={{ borderBottom: '1px solid rgba(51,65,85,0.4)' }}>
           {WEEK_DAYS.map(day => (
             <div key={day}
@@ -223,14 +230,12 @@ const MonthView: React.FC = () => {
           ))}
         </div>
 
-        {/* Days grid */}
         <div className="grid grid-cols-7">
-          {/* Empty cells */}
           {Array.from({ length: adjustedFirstDay }).map((_, i) => (
-            <div key={`empty-${i}`} className="aspect-square" style={{ borderRight: '1px solid rgba(51,65,85,0.15)', borderBottom: '1px solid rgba(51,65,85,0.15)' }} />
+            <div key={`empty-${i}`} className="aspect-square"
+              style={{ borderRight: '1px solid rgba(51,65,85,0.15)', borderBottom: '1px solid rgba(51,65,85,0.15)' }} />
           ))}
 
-          {/* Day cells */}
           {daysInMonth.map((day, di) => {
             const dayTasks = getTasksForDate(day);
             const isToday = isSameDay(day, today);
@@ -260,7 +265,6 @@ const MonthView: React.FC = () => {
                 onMouseLeave={() => setHoveredDay(null)}
                 onClick={() => isCurrentMonth && goToDay(day)}
               >
-                {/* Day number */}
                 <div className="p-1 sm:p-2">
                   <div
                     className="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold mb-1"
@@ -272,7 +276,6 @@ const MonthView: React.FC = () => {
                     {format(day, 'd')}
                   </div>
 
-                  {/* Progress bar */}
                   {dayTasks.length > 0 && isCurrentMonth && (
                     <div className="flex items-center gap-1 mb-1">
                       <div className="flex-1 h-1 sm:h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(51,65,85,0.5)' }}>
@@ -290,7 +293,6 @@ const MonthView: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Task chips — desktop: click navigates to that day */}
                   <div className="hidden sm:block">
                     {dayTasks.slice(0, 2).map(task => (
                       <div
@@ -312,35 +314,33 @@ const MonthView: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Mobile: task count badge */}
                   {dayTasks.length > 0 && isCurrentMonth && (
                     <div className="sm:hidden flex justify-center mt-0.5">
                       <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-                        style={{ background: 'rgba(20,184,166,0.15)', color: '#2dd4bf' }}
-                      >
+                        style={{ background: 'rgba(20,184,166,0.15)', color: '#2dd4bf' }}>
                         {dayTasks.length}
                       </span>
                     </div>
                   )}
 
-                  {/* Hover actions — desktop: duplicate shortcuts (no add task) */}
+                  {/* Hover actions */}
                   {isHovered && isCurrentMonth && (
                     <div className="hidden sm:block mt-1.5 space-y-1 animate-fade-in" onClick={e => e.stopPropagation()}>
                       {dayTasks.length > 0 && (
                         <div className="flex gap-1">
                           <button
-                            onClick={e => handleDuplicateClick(e, day, 'week')}
+                            onClick={e => handleWeekCopyClick(e, day)}
                             className="flex-1 py-1 rounded-lg text-[9px] font-semibold transition-colors"
                             style={{ background: 'rgba(20,184,166,0.08)', color: '#2dd4bf', border: '1px solid rgba(20,184,166,0.2)' }}
-                            title="Copy tasks to next 6 days"
+                            title="Copy tasks to week"
                           >
                             <DocumentDuplicateIcon className="w-2.5 h-2.5 inline mr-0.5" />Wk
                           </button>
                           <button
-                            onClick={e => handleDuplicateClick(e, day, 'month')}
+                            onClick={e => handleMonthCopyClick(e, day)}
                             className="flex-1 py-1 rounded-lg text-[9px] font-semibold transition-colors"
                             style={{ background: 'rgba(168,85,247,0.08)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.2)' }}
-                            title="Copy tasks to next 30 days"
+                            title="Copy tasks to month"
                           >
                             <DocumentDuplicateIcon className="w-2.5 h-2.5 inline mr-0.5" />Mo
                           </button>
@@ -355,25 +355,31 @@ const MonthView: React.FC = () => {
         </div>
       </div>
 
-      {showDuplicateDialog && duplicateSourceDate && duplicateType && (
-        <ConfirmDialog
-          isOpen={showDuplicateDialog}
-          title={`Duplicate to ${duplicateType === 'week' ? 'Week' : 'Month'}`}
-          message={`Copy all tasks from ${format(new Date(duplicateSourceDate + 'T12:00:00'), 'MMMM d, yyyy')} to the next ${duplicateType === 'week' ? '6 days' : '30 days'}?`}
-          confirmText={duplicating ? 'Duplicating…' : 'Duplicate'}
-          cancelText="Cancel"
-          onConfirm={handleDuplicateConfirm}
-          onCancel={() => { setShowDuplicateDialog(false); setDuplicateType(null); setDuplicateSourceDate(''); }}
-          type="info"
-        />
-      )}
+      {/* Dialogs */}
+      <WeekCopyDialog
+        isOpen={showWeekCopyDialog}
+        taskCount={duplicateSourceDate ? getTasksForDate(new Date(duplicateSourceDate + 'T12:00:00')).length : 0}
+        sourceDate={sourceDateLabel}
+        onSelect={(type: WeekCopyType) => runDuplicate(type)}
+        onCancel={() => { setShowWeekCopyDialog(false); setDuplicateSourceDate(''); }}
+        copying={duplicating}
+      />
+
+      <MonthCopyDialog
+        isOpen={showMonthCopyDialog}
+        taskCount={duplicateSourceDate ? getTasksForDate(new Date(duplicateSourceDate + 'T12:00:00')).length : 0}
+        sourceDate={sourceDateLabel}
+        onSelect={(type: MonthCopyType) => runDuplicate(type)}
+        onCancel={() => { setShowMonthCopyDialog(false); setDuplicateSourceDate(''); }}
+        copying={duplicating}
+      />
 
       <RollbackBanner
         isVisible={showRollbackBanner}
         taskCount={duplicatedTaskIds.length}
         onRollback={handleRollback}
         onDismiss={handleDismissRollback}
-        type={duplicateType || 'month'}
+        type={duplicateType || 'month_all'}
         rollingBack={rollingBack}
       />
 
@@ -387,6 +393,13 @@ const MonthView: React.FC = () => {
         onCancel={() => setShowDeleteAllDialog(false)}
         type="danger"
       />
+      {/* Inline Monthly Analytics */}
+      <InlineAnalyticsPanel
+        mode="monthly"
+        year={currentMonth.getFullYear()}
+        month={currentMonth.getMonth() + 1}
+      />
+
     </div>
   );
 };

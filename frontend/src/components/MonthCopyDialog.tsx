@@ -1,136 +1,122 @@
 import React from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
-import { WeekCopyType } from '../types';
+import { MonthCopyType } from '../types';
 
-interface WeekCopyDialogProps {
+interface MonthCopyDialogProps {
   isOpen: boolean;
   taskCount: number;
   sourceDate: string;
-  onSelect: (type: WeekCopyType) => void;
+  onSelect: (type: MonthCopyType) => void;
   onCancel: () => void;
   copying: boolean;
-  /** If true, show "single task" wording instead of "X tasks" */
   singleTask?: boolean;
 }
 
 interface OptionCard {
-  type: WeekCopyType;
+  type: MonthCopyType;
   emoji: string;
   label: string;
-  subtitle: string;
   description: string;
   gradient: string;
   borderNormal: string;
   borderHover: string;
   badge: { bg: string; color: string; border: string };
   badgeText: string;
-  group: 'this' | 'next';
+  group: 'current' | 'next';
 }
 
 const OPTIONS: OptionCard[] = [
-  // ── This week ──────────────────────────────────────────────────────────────
+  // ── Current month ─────────────────────────────────────────────────────────
   {
-    type: 'weekdays',
+    type: 'month_weekdays',
     emoji: '💼',
-    label: 'This Week — Weekdays',
-    subtitle: 'Mon – Fri (current week)',
-    description: 'Copies to the remaining weekdays of this calendar week.',
+    label: 'This Month — Weekdays',
+    description: 'Copies to all remaining weekdays (Mon–Fri) in the current month.',
     gradient: 'rgba(59,130,246,0.08)',
     borderNormal: 'rgba(59,130,246,0.2)',
     borderHover: 'rgba(59,130,246,0.5)',
     badge: { bg: 'rgba(59,130,246,0.12)', color: '#93c5fd', border: 'rgba(59,130,246,0.25)' },
-    badgeText: 'Up to 4 days',
-    group: 'this',
+    badgeText: 'Remaining weekdays',
+    group: 'current',
   },
   {
-    type: 'weekend',
+    type: 'month_weekend',
     emoji: '🌴',
-    label: 'This Week — Weekend',
-    subtitle: 'Sat & Sun (current week)',
-    description: 'Copies to Saturday and Sunday of this calendar week.',
+    label: 'This Month — Weekends',
+    description: 'Copies to all remaining weekend days (Sat & Sun) in the current month.',
     gradient: 'rgba(245,158,11,0.08)',
     borderNormal: 'rgba(245,158,11,0.2)',
     borderHover: 'rgba(245,158,11,0.5)',
     badge: { bg: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: 'rgba(245,158,11,0.25)' },
-    badgeText: 'Up to 2 days',
-    group: 'this',
+    badgeText: 'Remaining weekends',
+    group: 'current',
   },
   {
-    type: 'week',
+    type: 'month_all',
     emoji: '📆',
-    label: 'This Week — All Days',
-    subtitle: 'Mon – Sun (current week)',
-    description: 'Copies to every remaining day of this calendar week.',
+    label: 'This Month — All Days',
+    description: 'Copies to every remaining day in the current calendar month.',
     gradient: 'rgba(168,85,247,0.08)',
     borderNormal: 'rgba(168,85,247,0.2)',
     borderHover: 'rgba(168,85,247,0.5)',
     badge: { bg: 'rgba(168,85,247,0.12)', color: '#c084fc', border: 'rgba(168,85,247,0.25)' },
-    badgeText: 'Up to 6 days',
-    group: 'this',
+    badgeText: 'All remaining days',
+    group: 'current',
   },
-  // ── Next week ──────────────────────────────────────────────────────────────
+  // ── Next month ────────────────────────────────────────────────────────────
   {
-    type: 'next_week_weekdays',
+    type: 'next_month_weekdays',
     emoji: '🗂️',
-    label: 'Next Week — Weekdays',
-    subtitle: 'Mon – Fri (next week)',
-    description: 'Copies to all 5 weekdays of next calendar week.',
+    label: 'Next Month — Weekdays',
+    description: 'Copies to all weekdays (Mon–Fri) in next calendar month.',
     gradient: 'rgba(20,184,166,0.08)',
     borderNormal: 'rgba(20,184,166,0.2)',
     borderHover: 'rgba(20,184,166,0.5)',
     badge: { bg: 'rgba(20,184,166,0.12)', color: '#2dd4bf', border: 'rgba(20,184,166,0.25)' },
-    badgeText: '5 days',
+    badgeText: '~21 days',
     group: 'next',
   },
   {
-    type: 'next_week_weekend',
+    type: 'next_month_weekend',
     emoji: '🏖️',
-    label: 'Next Week — Weekend',
-    subtitle: 'Sat & Sun (next week)',
-    description: 'Copies to Saturday and Sunday of next calendar week.',
+    label: 'Next Month — Weekends',
+    description: 'Copies to all weekend days (Sat & Sun) in next calendar month.',
     gradient: 'rgba(236,72,153,0.08)',
     borderNormal: 'rgba(236,72,153,0.2)',
     borderHover: 'rgba(236,72,153,0.5)',
     badge: { bg: 'rgba(236,72,153,0.12)', color: '#f472b6', border: 'rgba(236,72,153,0.25)' },
-    badgeText: '2 days',
+    badgeText: '~8 days',
     group: 'next',
   },
   {
-    type: 'next_week',
+    type: 'next_month_all',
     emoji: '🗓️',
-    label: 'Next Week — All Days',
-    subtitle: 'Mon – Sun (next week)',
-    description: 'Copies to all 7 days of next calendar week.',
+    label: 'Next Month — All Days',
+    description: 'Copies to every single day of next calendar month.',
     gradient: 'rgba(34,197,94,0.08)',
     borderNormal: 'rgba(34,197,94,0.2)',
     borderHover: 'rgba(34,197,94,0.5)',
     badge: { bg: 'rgba(34,197,94,0.12)', color: '#4ade80', border: 'rgba(34,197,94,0.25)' },
-    badgeText: '7 days',
+    badgeText: '28-31 days',
     group: 'next',
   },
 ];
 
-const WeekCopyDialog: React.FC<WeekCopyDialogProps> = ({
-  isOpen,
-  taskCount,
-  sourceDate,
-  onSelect,
-  onCancel,
-  copying,
-  singleTask,
+const MonthCopyDialog: React.FC<MonthCopyDialogProps> = ({
+  isOpen, taskCount, sourceDate, onSelect, onCancel, copying, singleTask,
 }) => {
   if (!isOpen) return null;
 
-  const thisWeek = OPTIONS.filter(o => o.group === 'this');
-  const nextWeek = OPTIONS.filter(o => o.group === 'next');
+  const currentMonth = OPTIONS.filter(o => o.group === 'current');
+  const nextMonth = OPTIONS.filter(o => o.group === 'next');
 
   const renderOption = (opt: OptionCard) => (
     <button
       key={opt.type}
-      id={`week-copy-option-${opt.type}`}
+      id={`month-copy-option-${opt.type}`}
       onClick={() => onSelect(opt.type)}
       disabled={copying}
-      className="w-full text-left rounded-2xl p-3.5 transition-all duration-200 group"
+      className="w-full text-left rounded-2xl p-3.5 transition-all duration-200"
       style={{
         background: opt.gradient,
         border: `1.5px solid ${opt.borderNormal}`,
@@ -181,7 +167,7 @@ const WeekCopyDialog: React.FC<WeekCopyDialogProps> = ({
         style={{
           background: 'rgba(10,15,30,0.97)',
           border: '1px solid rgba(51,65,85,0.7)',
-          boxShadow: '0 25px 80px rgba(0,0,0,0.8), 0 0 40px rgba(20,184,166,0.12)',
+          boxShadow: '0 25px 80px rgba(0,0,0,0.8), 0 0 40px rgba(168,85,247,0.12)',
           maxHeight: '90vh',
           overflowY: 'auto',
         }}
@@ -190,26 +176,29 @@ const WeekCopyDialog: React.FC<WeekCopyDialogProps> = ({
         <div
           className="px-6 py-5 flex items-start justify-between sticky top-0 z-10"
           style={{
-            background: 'linear-gradient(135deg, rgba(20,184,166,0.15) 0%, rgba(168,85,247,0.15) 100%)',
+            background: 'linear-gradient(135deg, rgba(168,85,247,0.15) 0%, rgba(236,72,153,0.15) 100%)',
             borderBottom: '1px solid rgba(51,65,85,0.5)',
           }}
         >
           <div>
-            <h2 className="text-xl font-bold text-slate-100">Copy to Week</h2>
+            <h2 className="text-xl font-bold text-slate-100">Copy to Month</h2>
             <p className="text-sm text-slate-400 mt-1">
               {singleTask ? (
-                <span className="text-primary-400 font-semibold">1 task</span>
+                <span className="text-accent-400 font-semibold">1 task</span>
               ) : (
-                <span className="text-primary-400 font-semibold">{taskCount} task{taskCount !== 1 ? 's' : ''}</span>
+                <span className="text-accent-400 font-semibold">{taskCount} task{taskCount !== 1 ? 's' : ''}</span>
               )}
               {' '}from <span className="text-slate-200 font-medium">{sourceDate}</span>
             </p>
+            <p className="text-[11px] text-slate-500 mt-1">
+              ✅ Duplicate titles on same day are automatically skipped. Past days are never copied to.
+            </p>
           </div>
           <button
-            id="week-copy-dialog-close"
+            id="month-copy-dialog-close"
             onClick={onCancel}
             disabled={copying}
-            className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-300 transition-colors"
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-300 transition-colors flex-shrink-0 ml-3"
             style={{ background: 'rgba(255,255,255,0.05)' }}
           >
             <XMarkIcon className="w-5 h-5" />
@@ -218,29 +207,27 @@ const WeekCopyDialog: React.FC<WeekCopyDialogProps> = ({
 
         {/* Options */}
         <div className="px-5 py-4 space-y-4">
-          {/* This week */}
           <div>
             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-2.5">
-              📅 This Week
+              📅 Current Month
             </p>
-            <div className="space-y-2">{thisWeek.map(renderOption)}</div>
+            <div className="space-y-2">{currentMonth.map(renderOption)}</div>
           </div>
 
           <div className="divider" />
 
-          {/* Next week */}
           <div>
             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-2.5">
-              ➡️ Next Week
+              ➡️ Next Month
             </p>
-            <div className="space-y-2">{nextWeek.map(renderOption)}</div>
+            <div className="space-y-2">{nextMonth.map(renderOption)}</div>
           </div>
         </div>
 
         {/* Footer */}
         <div className="px-5 pb-5">
           <button
-            id="week-copy-dialog-cancel"
+            id="month-copy-dialog-cancel"
             onClick={onCancel}
             disabled={copying}
             className="btn-secondary w-full"
@@ -253,4 +240,4 @@ const WeekCopyDialog: React.FC<WeekCopyDialogProps> = ({
   );
 };
 
-export default WeekCopyDialog;
+export default MonthCopyDialog;

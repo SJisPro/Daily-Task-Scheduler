@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { format, startOfWeek, addDays, isSameDay } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
-import { Task } from '../types';
+import { Task, CopyTargetType, WeekCopyType, MonthCopyType } from '../types';
 import { taskApi } from '../services/api';
 import ConfirmDialog from '../components/ConfirmDialog';
 import RollbackBanner from '../components/RollbackBanner';
+import WeekCopyDialog from '../components/WeekCopyDialog';
+import MonthCopyDialog from '../components/MonthCopyDialog';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -14,6 +16,7 @@ import {
   XMarkIcon,
   ArrowRightIcon,
 } from '@heroicons/react/24/outline';
+import InlineAnalyticsPanel from '../components/InlineAnalyticsPanel';
 
 const WeekView: React.FC = () => {
   const navigate = useNavigate();
@@ -22,9 +25,10 @@ const WeekView: React.FC = () => {
     try { return startOfWeek(new Date(), { weekStartsOn: 1 }); }
     catch { return new Date(); }
   });
-  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+  const [showWeekCopyDialog, setShowWeekCopyDialog] = useState(false);
+  const [showMonthCopyDialog, setShowMonthCopyDialog] = useState(false);
   const [duplicateSourceDate, setDuplicateSourceDate] = useState<string>('');
-  const [duplicateType, setDuplicateType] = useState<'week' | 'month' | null>(null);
+  const [duplicateType, setDuplicateType] = useState<CopyTargetType | null>(null);
   const [duplicating, setDuplicating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,36 +68,41 @@ const WeekView: React.FC = () => {
   };
 
   const goToDay = (date: Date) => navigate(`/day?date=${format(date, 'yyyy-MM-dd')}`);
-
   const getTasksForDay = (date: Date) => tasks.filter(t => t.scheduled_date === format(date, 'yyyy-MM-dd'));
   const navigateWeek = (dir: 'prev' | 'next') => setWeekStart(addDays(weekStart, dir === 'next' ? 7 : -7));
 
   let weekDays: Date[] = [];
   const today = new Date();
-  try {
-    weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  } catch { weekDays = []; }
+  try { weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)); }
+  catch { weekDays = []; }
 
-  const handleDuplicateClick = (date: Date, type: 'week' | 'month') => {
-    if (getTasksForDay(date).length === 0) {
-      alert(`No tasks for ${format(date, 'MMMM d, yyyy')}!`); return;
-    }
+  const handleWeekCopyClick = (date: Date) => {
+    if (getTasksForDay(date).length === 0) { alert(`No tasks for ${format(date, 'MMMM d, yyyy')}!`); return; }
     setDuplicateSourceDate(format(date, 'yyyy-MM-dd'));
-    setDuplicateType(type);
-    setShowDuplicateDialog(true);
+    setShowWeekCopyDialog(true);
   };
 
-  const handleDuplicateConfirm = async () => {
-    if (!duplicateType || !duplicateSourceDate) return;
+  const handleMonthCopyClick = (date: Date) => {
+    if (getTasksForDay(date).length === 0) { alert(`No tasks for ${format(date, 'MMMM d, yyyy')}!`); return; }
+    setDuplicateSourceDate(format(date, 'yyyy-MM-dd'));
+    setShowMonthCopyDialog(true);
+  };
+
+  const runDuplicate = async (type: CopyTargetType) => {
+    if (!duplicateSourceDate) return;
     setDuplicating(true);
     try {
-      const response = await taskApi.duplicateTasks(duplicateSourceDate, duplicateType);
+      const response = await taskApi.duplicateTasks(duplicateSourceDate, type);
       setDuplicatedTaskIds(response.data.map(t => t.id));
-      setShowDuplicateDialog(false);
-      setDuplicateType(null);
+      setDuplicateType(type);
+      setShowWeekCopyDialog(false);
+      setShowMonthCopyDialog(false);
       setDuplicateSourceDate('');
       setShowRollbackBanner(true);
       loadWeekTasks();
+      if (response.data.length === 0) {
+        alert('No tasks were copied — all target days already have these tasks, or there are no valid future dates.');
+      }
     } catch (error: any) {
       alert(error.response?.data?.detail || 'Failed to duplicate tasks.');
     } finally { setDuplicating(false); }
@@ -153,16 +162,16 @@ const WeekView: React.FC = () => {
     );
   }
 
+  const sourceDateLabel = duplicateSourceDate
+    ? format(new Date(duplicateSourceDate + 'T12:00:00'), 'EEE, MMM d')
+    : '';
+
   return (
     <div className="max-w-7xl mx-auto px-0 sm:px-4 py-2 space-y-4 sm:space-y-6 animate-fade-in">
       {/* Week header */}
       <div
         className="rounded-2xl overflow-hidden"
-        style={{
-          background: 'rgba(20,30,50,0.8)',
-          backdropFilter: 'blur(16px)',
-          border: '1px solid rgba(51,65,85,0.5)',
-        }}
+        style={{ background: 'rgba(20,30,50,0.8)', backdropFilter: 'blur(16px)', border: '1px solid rgba(51,65,85,0.5)' }}
       >
         <div className="h-1" style={{ background: 'linear-gradient(90deg, #14b8a6, #a855f7)' }} />
         <div className="p-3 sm:p-5 flex items-center justify-between gap-2">
@@ -235,7 +244,6 @@ const WeekView: React.FC = () => {
               }}
               onClick={() => goToDay(day)}
             >
-              {/* Day header — clicking navigates, shows arrow hint on hover */}
               <div
                 className="p-3 text-center relative"
                 style={{
@@ -257,18 +265,14 @@ const WeekView: React.FC = () => {
                     {completedDay}/{dayTasks.length}
                   </div>
                 )}
-                {/* Hover arrow hint */}
                 <div className="absolute top-2 right-2 opacity-0 group-hover/col:opacity-100 transition-opacity">
                   <ArrowRightIcon className="w-3 h-3 text-primary-400" />
                 </div>
               </div>
 
-              {/* Tasks (read-only preview) */}
               <div className="flex-1 p-2 space-y-1.5 overflow-y-auto">
                 {dayTasks.length === 0 ? (
-                  <div className="text-center text-slate-600 text-[11px] py-6 font-medium">
-                    No tasks
-                  </div>
+                  <div className="text-center text-slate-600 text-[11px] py-6 font-medium">No tasks</div>
                 ) : (
                   dayTasks.map(task => (
                     <div
@@ -286,8 +290,6 @@ const WeekView: React.FC = () => {
                         {task.title}
                       </div>
                       <div className="text-slate-600 mt-0.5 text-[10px]">⏰ {task.scheduled_time}</div>
-
-                      {/* Quick complete / delete — stop propagation so col click doesn't fire */}
                       <div className="flex gap-1 mt-1.5 opacity-0 group-hover/task:opacity-100 transition-opacity">
                         <button
                           onClick={e => { e.stopPropagation(); task.is_completed ? handleUncomplete(task.id) : handleComplete(task.id); }}
@@ -312,9 +314,8 @@ const WeekView: React.FC = () => {
                 )}
               </div>
 
-              {/* Day footer — duplicate buttons + open day */}
+              {/* Day footer */}
               <div className="p-2 space-y-1.5" style={{ borderTop: '1px solid rgba(51,65,85,0.3)' }}>
-                {/* Open Day button */}
                 <button
                   id={`week-open-day-${format(day, 'yyyy-MM-dd')}`}
                   onClick={e => { e.stopPropagation(); goToDay(day); }}
@@ -325,11 +326,10 @@ const WeekView: React.FC = () => {
                 >
                   <ArrowRightIcon className="w-3 h-3" />Open Day
                 </button>
-                {/* Copy shortcuts */}
                 {dayTasks.length > 0 && (
                   <div className="flex gap-1">
                     <button
-                      onClick={e => { e.stopPropagation(); handleDuplicateClick(day, 'week'); }}
+                      onClick={e => { e.stopPropagation(); handleWeekCopyClick(day); }}
                       className="flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all duration-200"
                       style={{ background: 'rgba(20,184,166,0.08)', color: '#2dd4bf', border: '1px solid rgba(20,184,166,0.2)' }}
                       title="Copy to week"
@@ -337,7 +337,7 @@ const WeekView: React.FC = () => {
                       <DocumentDuplicateIcon className="w-3 h-3 inline mr-0.5" />Wk
                     </button>
                     <button
-                      onClick={e => { e.stopPropagation(); handleDuplicateClick(day, 'month'); }}
+                      onClick={e => { e.stopPropagation(); handleMonthCopyClick(day); }}
                       className="flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all duration-200"
                       style={{ background: 'rgba(168,85,247,0.08)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.2)' }}
                       title="Copy to month"
@@ -372,7 +372,6 @@ const WeekView: React.FC = () => {
                 opacity: isPast ? 0.75 : 1,
               }}
             >
-              {/* Day header — full row tappable to open day view */}
               <button
                 id={`week-mobile-open-day-${format(day, 'yyyy-MM-dd')}`}
                 className="w-full px-4 py-3 flex items-center justify-between text-left"
@@ -404,7 +403,6 @@ const WeekView: React.FC = () => {
                 </div>
               </button>
 
-              {/* Task preview (tap-through to day, quick complete/delete) */}
               {dayTasks.length === 0 ? (
                 <div className="px-4 py-3 text-center text-slate-600 text-xs font-medium">No tasks — tap to add</div>
               ) : (
@@ -428,7 +426,6 @@ const WeekView: React.FC = () => {
                       >
                         {task.is_completed && <CheckIcon className="w-3 h-3 text-white" strokeWidth={3} />}
                       </button>
-                      {/* tapping text area opens day view */}
                       <div className="flex-1 min-w-0" onClick={() => goToDay(day)}>
                         <div className={`text-sm font-semibold truncate ${task.is_completed ? 'line-through text-slate-500' : 'text-slate-100'}`}>
                           {task.title}
@@ -444,6 +441,23 @@ const WeekView: React.FC = () => {
                       </button>
                     </div>
                   ))}
+                  {/* Mobile copy buttons */}
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={() => handleWeekCopyClick(day)}
+                      className="flex-1 py-2 rounded-xl text-[11px] font-semibold"
+                      style={{ background: 'rgba(20,184,166,0.08)', color: '#2dd4bf', border: '1px solid rgba(20,184,166,0.2)' }}
+                    >
+                      <DocumentDuplicateIcon className="w-3 h-3 inline mr-1" />Copy to Week
+                    </button>
+                    <button
+                      onClick={() => handleMonthCopyClick(day)}
+                      className="flex-1 py-2 rounded-xl text-[11px] font-semibold"
+                      style={{ background: 'rgba(168,85,247,0.08)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.2)' }}
+                    >
+                      <DocumentDuplicateIcon className="w-3 h-3 inline mr-1" />Copy to Month
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -451,18 +465,24 @@ const WeekView: React.FC = () => {
         })}
       </div>
 
-      {showDuplicateDialog && duplicateSourceDate && duplicateType && (
-        <ConfirmDialog
-          isOpen={showDuplicateDialog}
-          title={`Duplicate to ${duplicateType === 'week' ? 'Week' : 'Month'}`}
-          message={`Copy all tasks from ${format(new Date(duplicateSourceDate + 'T12:00:00'), 'MMMM d, yyyy')} to the next ${duplicateType === 'week' ? '6 days' : '30 days'}?`}
-          confirmText={duplicating ? 'Duplicating…' : 'Duplicate'}
-          cancelText="Cancel"
-          onConfirm={handleDuplicateConfirm}
-          onCancel={() => { setShowDuplicateDialog(false); setDuplicateType(null); setDuplicateSourceDate(''); }}
-          type="info"
-        />
-      )}
+      {/* Dialogs */}
+      <WeekCopyDialog
+        isOpen={showWeekCopyDialog}
+        taskCount={duplicateSourceDate ? getTasksForDay(new Date(duplicateSourceDate + 'T12:00:00')).length : 0}
+        sourceDate={sourceDateLabel}
+        onSelect={(type: WeekCopyType) => runDuplicate(type)}
+        onCancel={() => { setShowWeekCopyDialog(false); setDuplicateSourceDate(''); }}
+        copying={duplicating}
+      />
+
+      <MonthCopyDialog
+        isOpen={showMonthCopyDialog}
+        taskCount={duplicateSourceDate ? getTasksForDay(new Date(duplicateSourceDate + 'T12:00:00')).length : 0}
+        sourceDate={sourceDateLabel}
+        onSelect={(type: MonthCopyType) => runDuplicate(type)}
+        onCancel={() => { setShowMonthCopyDialog(false); setDuplicateSourceDate(''); }}
+        copying={duplicating}
+      />
 
       <RollbackBanner
         isVisible={showRollbackBanner}
@@ -483,6 +503,9 @@ const WeekView: React.FC = () => {
         onCancel={() => setShowDeleteAllDialog(false)}
         type="danger"
       />
+      {/* Inline Weekly Analytics */}
+      <InlineAnalyticsPanel mode="weekly" weekStart={weekStart} />
+
     </div>
   );
 };

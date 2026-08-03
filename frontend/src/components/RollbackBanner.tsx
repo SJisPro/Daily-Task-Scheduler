@@ -12,10 +12,18 @@ interface RollbackBannerProps {
 }
 
 const LABEL_MAP: Record<CopyTargetType, string> = {
-  weekdays: 'weekdays (Mon–Fri)',
-  weekend: 'the weekend (Sat–Sun)',
-  week: 'the whole week',
-  month: 'the next 30 days',
+  weekdays: 'this week\'s weekdays',
+  weekend: 'this week\'s weekend',
+  week: 'this entire week',
+  next_week_weekdays: 'next week\'s weekdays',
+  next_week_weekend: 'next week\'s weekend',
+  next_week: 'the entire next week',
+  month_weekdays: 'this month\'s remaining weekdays',
+  month_weekend: 'this month\'s remaining weekends',
+  month_all: 'the rest of this month',
+  next_month_weekdays: 'next month\'s weekdays',
+  next_month_weekend: 'next month\'s weekends',
+  next_month_all: 'the entire next month',
 };
 
 const RollbackBanner: React.FC<RollbackBannerProps> = ({

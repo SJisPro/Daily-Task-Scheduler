@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { format } from 'date-fns';
+import { format, addDays, subDays, parseISO } from 'date-fns';
 import { useSearchParams } from 'react-router-dom';
-import { Task, TaskCreate, CopyTargetType } from '../types';
+import { Task, TaskCreate, CopyTargetType, WeekCopyType, MonthCopyType } from '../types';
 import { taskApi } from '../services/api';
 import TaskCard from '../components/TaskCard';
 import TaskForm from '../components/TaskForm';
 import ConfirmDialog from '../components/ConfirmDialog';
 import RollbackBanner from '../components/RollbackBanner';
 import WeekCopyDialog from '../components/WeekCopyDialog';
+import MonthCopyDialog from '../components/MonthCopyDialog';
+import SingleTaskCopyDialog from '../components/SingleTaskCopyDialog';
 import {
   PlusIcon,
   DocumentDuplicateIcon,
@@ -16,6 +18,8 @@ import {
   ClockIcon,
   ListBulletIcon,
   CalendarDaysIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
 } from '@heroicons/react/24/outline';
 
 const DayView: React.FC = () => {
@@ -25,14 +29,20 @@ const DayView: React.FC = () => {
     searchParams.get('date') || format(new Date(), 'yyyy-MM-dd')
   );
 
-  // When navigating here from week/month view with a ?date= param, update selection
   useEffect(() => {
     const dateParam = searchParams.get('date');
     if (dateParam) setSelectedDate(dateParam);
   }, [searchParams]);
+
+  const goToPrevDay = () => setSelectedDate(prev => format(subDays(parseISO(prev), 1), 'yyyy-MM-dd'));
+  const goToNextDay = () => setSelectedDate(prev => format(addDays(parseISO(prev), 1), 'yyyy-MM-dd'));
+  const goToToday = () => setSelectedDate(format(new Date(), 'yyyy-MM-dd'));
+
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // ── copy-all state ─────────────────────────────────────────────────────────
   const [showWeekCopyDialog, setShowWeekCopyDialog] = useState(false);
   const [showMonthCopyDialog, setShowMonthCopyDialog] = useState(false);
   const [duplicateType, setDuplicateType] = useState<CopyTargetType | null>(null);
@@ -40,12 +50,17 @@ const DayView: React.FC = () => {
   const [duplicatedTaskIds, setDuplicatedTaskIds] = useState<number[]>([]);
   const [showRollbackBanner, setShowRollbackBanner] = useState(false);
   const [rollingBack, setRollingBack] = useState(false);
+
+  // ── copy-single state ──────────────────────────────────────────────────────
+  const [singleCopyTask, setSingleCopyTask] = useState<Task | null>(null);
+  const [showSingleCopyDialog, setShowSingleCopyDialog] = useState(false);
+  const [singleCopying, setSingleCopying] = useState(false);
+
+  // ── delete all ────────────────────────────────────────────────────────────
   const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
   const [deletingAll, setDeletingAll] = useState(false);
 
-  useEffect(() => {
-    loadTasks();
-  }, [selectedDate]);
+  useEffect(() => { loadTasks(); }, [selectedDate]);
 
   const loadTasks = async () => {
     setLoading(true);
@@ -54,9 +69,7 @@ const DayView: React.FC = () => {
       setTasks(response.data);
     } catch (error) {
       console.error('Error loading tasks:', error);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const handleCreateTask = async (taskData: TaskCreate) => {
@@ -89,6 +102,7 @@ const DayView: React.FC = () => {
     }
   };
 
+  // ── copy-all handlers ──────────────────────────────────────────────────────
   const handleWeekCopyClick = () => {
     if (tasks.length === 0) { alert('No tasks to duplicate for this day!'); return; }
     setShowWeekCopyDialog(true);
@@ -96,29 +110,63 @@ const DayView: React.FC = () => {
 
   const handleMonthCopyClick = () => {
     if (tasks.length === 0) { alert('No tasks to duplicate for this day!'); return; }
-    setDuplicateType('month');
     setShowMonthCopyDialog(true);
   };
 
-  const handleDuplicateConfirm = async (type: CopyTargetType) => {
+  const handleWeekCopySelect = async (type: WeekCopyType) => {
+    await runDuplicateAll(type);
+    setShowWeekCopyDialog(false);
+  };
+
+  const handleMonthCopySelect = async (type: MonthCopyType) => {
+    await runDuplicateAll(type);
+    setShowMonthCopyDialog(false);
+  };
+
+  const runDuplicateAll = async (type: CopyTargetType) => {
     setDuplicating(true);
     try {
       const response = await taskApi.duplicateTasks(selectedDate, type);
       const createdTaskIds = response.data.map(task => task.id);
       setDuplicatedTaskIds(createdTaskIds);
       setDuplicateType(type);
-      setShowWeekCopyDialog(false);
-      setShowMonthCopyDialog(false);
       setShowRollbackBanner(true);
       loadTasks();
+      if (response.data.length === 0) {
+        alert('No tasks were copied — all target days already have tasks with the same titles, or there are no valid future dates.');
+      }
     } catch (error: any) {
       console.error('Error duplicating tasks:', error);
       alert(error.response?.data?.detail || 'Failed to duplicate tasks. Please try again.');
-    } finally {
-      setDuplicating(false);
-    }
+    } finally { setDuplicating(false); }
   };
 
+  // ── copy-single handlers ───────────────────────────────────────────────────
+  const handleCopySingle = (task: Task) => {
+    setSingleCopyTask(task);
+    setShowSingleCopyDialog(true);
+  };
+
+  const handleSingleCopySelect = async (type: CopyTargetType) => {
+    if (!singleCopyTask) return;
+    setSingleCopying(true);
+    try {
+      const response = await taskApi.duplicateSingleTask(singleCopyTask.id, type);
+      setShowSingleCopyDialog(false);
+      setSingleCopyTask(null);
+      const count = response.data.length;
+      if (count === 0) {
+        alert('Task was not copied — the task title already exists on all target dates, or there are no valid future dates.');
+      } else {
+        alert(`✅ Task copied to ${count} day${count !== 1 ? 's' : ''}!`);
+      }
+      loadTasks();
+    } catch (error: any) {
+      alert(error.response?.data?.detail || 'Failed to copy task. Please try again.');
+    } finally { setSingleCopying(false); }
+  };
+
+  // ── rollback ──────────────────────────────────────────────────────────────
   const handleRollback = async () => {
     if (duplicatedTaskIds.length === 0) return;
     setRollingBack(true);
@@ -128,11 +176,8 @@ const DayView: React.FC = () => {
       setDuplicatedTaskIds([]);
       loadTasks();
     } catch (error: any) {
-      console.error('Error rolling back tasks:', error);
       alert(error.response?.data?.detail || 'Failed to rollback tasks. Please try again.');
-    } finally {
-      setRollingBack(false);
-    }
+    } finally { setRollingBack(false); }
   };
 
   const handleDismissRollback = () => {
@@ -140,6 +185,7 @@ const DayView: React.FC = () => {
     setTimeout(() => setDuplicatedTaskIds([]), 30000);
   };
 
+  // ── delete all ────────────────────────────────────────────────────────────
   const handleDeleteAllClick = () => {
     if (tasks.length === 0) { alert('No tasks to delete for this day!'); return; }
     setShowDeleteAllDialog(true);
@@ -153,18 +199,14 @@ const DayView: React.FC = () => {
       alert(`Successfully deleted ${response.data.deleted_count} task(s)!`);
       loadTasks();
     } catch (error: any) {
-      console.error('Error deleting all tasks:', error);
       alert(error.response?.data?.detail || 'Failed to delete tasks. Please try again.');
-    } finally {
-      setDeletingAll(false);
-    }
+    } finally { setDeletingAll(false); }
   };
 
   const sortedTasks = [...tasks].sort((a, b) => a.scheduled_time.localeCompare(b.scheduled_time));
   const completedCount = tasks.filter(t => t.is_completed).length;
   const pendingCount = tasks.length - completedCount;
   const progress = tasks.length > 0 ? Math.round((completedCount / tasks.length) * 100) : 0;
-
   const isToday = selectedDate === format(new Date(), 'yyyy-MM-dd');
 
   return (
@@ -179,18 +221,38 @@ const DayView: React.FC = () => {
           boxShadow: '0 4px 30px rgba(0,0,0,0.4)',
         }}
       >
-        {/* Top gradient strip */}
         <div className="h-1" style={{ background: 'linear-gradient(90deg, #14b8a6, #a855f7, #ec4899)' }} />
 
         <div className="p-4 sm:p-6">
           {/* Date row */}
           <div className="flex flex-col gap-4 mb-5">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <CalendarDaysIcon className="w-4 h-4 sm:w-5 sm:h-5 text-primary-400 flex-shrink-0" />
-                  {isToday && (
-                    <span className="badge-teal text-[11px]">Today</span>
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* Prev Day */}
+              <button
+                id="day-prev-btn"
+                onClick={goToPrevDay}
+                className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200 text-slate-400 hover:text-teal-400"
+                style={{ background: 'rgba(51,65,85,0.4)', border: '1px solid rgba(51,65,85,0.6)' }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(20,184,166,0.4)')}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(51,65,85,0.6)')}
+                title="Previous day"
+              >
+                <ChevronLeftIcon className="w-4 h-4" />
+              </button>
+
+              {/* Date title (click to open picker) */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <CalendarDaysIcon className="w-4 h-4 text-primary-400 flex-shrink-0" />
+                  {isToday && <span className="badge-teal text-[11px]">Today</span>}
+                  {!isToday && (
+                    <button
+                      onClick={goToToday}
+                      className="text-[10px] px-2 py-0.5 rounded-full font-semibold transition-colors"
+                      style={{ background: 'rgba(20,184,166,0.12)', color: '#2dd4bf', border: '1px solid rgba(20,184,166,0.25)' }}
+                    >
+                      Back to Today
+                    </button>
                   )}
                 </div>
                 <h2 className="text-lg sm:text-2xl font-bold text-slate-100 leading-tight">
@@ -198,12 +260,27 @@ const DayView: React.FC = () => {
                   <span className="hidden sm:block">{format(new Date(selectedDate + 'T12:00:00'), 'EEEE, MMMM d, yyyy')}</span>
                 </h2>
               </div>
+
+              {/* Next Day */}
+              <button
+                id="day-next-btn"
+                onClick={goToNextDay}
+                className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200 text-slate-400 hover:text-teal-400"
+                style={{ background: 'rgba(51,65,85,0.4)', border: '1px solid rgba(51,65,85,0.6)' }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(20,184,166,0.4)')}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(51,65,85,0.6)')}
+                title="Next day"
+              >
+                <ChevronRightIcon className="w-4 h-4" />
+              </button>
+
+              {/* Date picker */}
               <input
                 id="day-date-picker"
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className="input-field !w-auto text-xs px-3 py-2 flex-shrink-0"
+                className="input-field !w-auto text-xs px-3 py-2 flex-shrink-0 hidden sm:block"
                 style={{ minWidth: '130px' }}
               />
             </div>
@@ -314,10 +391,7 @@ const DayView: React.FC = () => {
       ) : sortedTasks.length === 0 ? (
         <div
           className="rounded-3xl p-8 sm:p-16 text-center animate-fade-in"
-          style={{
-            background: 'rgba(20,30,50,0.6)',
-            border: '1px dashed rgba(51,65,85,0.6)',
-          }}
+          style={{ background: 'rgba(20,30,50,0.6)', border: '1px dashed rgba(51,65,85,0.6)' }}
         >
           <div className="text-5xl sm:text-6xl mb-4 animate-float">📋</div>
           <h3 className="text-lg font-bold text-slate-300 mb-2">No tasks scheduled</h3>
@@ -341,6 +415,7 @@ const DayView: React.FC = () => {
               onUncomplete={handleUncomplete}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onCopySingle={handleCopySingle}
             />
           ))}
         </div>
@@ -359,20 +434,26 @@ const DayView: React.FC = () => {
         isOpen={showWeekCopyDialog}
         taskCount={tasks.length}
         sourceDate={format(new Date(selectedDate + 'T12:00:00'), 'EEEE, MMM d')}
-        onSelect={(type) => handleDuplicateConfirm(type)}
+        onSelect={handleWeekCopySelect}
         onCancel={() => setShowWeekCopyDialog(false)}
         copying={duplicating}
       />
 
-      <ConfirmDialog
+      <MonthCopyDialog
         isOpen={showMonthCopyDialog}
-        title="Copy Tasks to Month"
-        message={`This will copy all ${tasks.length} task(s) from ${format(new Date(selectedDate + 'T12:00:00'), 'MMMM d, yyyy')} to the next 30 days. Continue?`}
-        confirmText={duplicating ? 'Copying…' : 'Copy to Month'}
-        cancelText="Cancel"
-        onConfirm={() => handleDuplicateConfirm('month')}
-        onCancel={() => { setShowMonthCopyDialog(false); setDuplicateType(null); }}
-        type="info"
+        taskCount={tasks.length}
+        sourceDate={format(new Date(selectedDate + 'T12:00:00'), 'EEEE, MMM d')}
+        onSelect={handleMonthCopySelect}
+        onCancel={() => setShowMonthCopyDialog(false)}
+        copying={duplicating}
+      />
+
+      <SingleTaskCopyDialog
+        isOpen={showSingleCopyDialog}
+        task={singleCopyTask}
+        onSelect={handleSingleCopySelect}
+        onCancel={() => { setShowSingleCopyDialog(false); setSingleCopyTask(null); }}
+        copying={singleCopying}
       />
 
       <RollbackBanner
